@@ -1,14 +1,8 @@
 import Stripe from 'stripe';
 import { setUserPlan } from '../services/user-service.js';
 
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error('STRIPE_SECRET_KEY is required');
-}
-
-if (!process.env.STRIPE_WEBHOOK_SECRET) {
-  throw new Error('STRIPE_WEBHOOK_SECRET is required');
-}
-
+// STRIPE_SECRET_KEY is validated in app.js
+// STRIPE_WEBHOOK_SECRET is optional (only needed when webhook is called)
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 export async function stripeWebhookRoute(fastify) {
@@ -24,6 +18,10 @@ export async function stripeWebhookRoute(fastify) {
 
     if (!sig || !buf) {
       return reply.code(400).send({ error: 'Missing signature or body' });
+    }
+
+    if (!process.env.STRIPE_WEBHOOK_SECRET) {
+      return reply.code(500).send({ error: 'STRIPE_WEBHOOK_SECRET not configured' });
     }
 
     let event;

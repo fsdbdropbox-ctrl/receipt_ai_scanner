@@ -59,11 +59,23 @@ fastify.get('/health', async (request, reply) => {
   return { status: 'ok' };
 });
 
+// Validate required environment variables
+const requiredEnvVars = ['GEMINI_API_KEY', 'REDIS_URL', 'STRIPE_SECRET_KEY'];
+const missingVars = requiredEnvVars.filter(v => !process.env[v]);
+
+if (missingVars.length > 0) {
+  console.error('Missing required environment variables:', missingVars.join(', '));
+  process.exit(1);
+}
+
 // Start server
 const start = async () => {
   try {
-    const port = parseInt(process.env.PORT || '3000', 10);
-    await fastify.listen({ port, host: '0.0.0.0' });
+    const port = Number(process.env.PORT || 8080);
+    await fastify.listen({
+      port,
+      host: '0.0.0.0',
+    });
     console.log(`Server listening on port ${port}`);
   } catch (err) {
     fastify.log.error(err);

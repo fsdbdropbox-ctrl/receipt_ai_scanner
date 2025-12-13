@@ -1,9 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-if (!process.env.GEMINI_API_KEY) {
-  throw new Error('GEMINI_API_KEY is required');
-}
-
+// GEMINI_API_KEY is validated in app.js before this module is used
 export const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 export const model = genAI.getGenerativeModel({ model: 'gemini-pro-vision' });
 
