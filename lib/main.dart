@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter/material.dart';
 import 'package:receipt_ai_scanner/features/scan/scan_view.dart';
 import 'package:receipt_ai_scanner/features/scan/scan_view_model.dart';
 import 'package:receipt_ai_scanner/core/auth/installation_id_service.dart';

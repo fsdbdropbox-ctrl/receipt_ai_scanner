@@ -1,3 +1,5 @@
+import { hashIP } from './crypto.js';
+
 export function logRequest(req, res, responseTime) {
   const ipHash = req.ip ? hashIP(req.ip) : 'unknown';
   console.log({
@@ -18,6 +20,4 @@ export function logError(error, context = {}) {
     timestamp: new Date().toISOString(),
   });
 }
-
-import { hashIP } from './crypto.js';
 

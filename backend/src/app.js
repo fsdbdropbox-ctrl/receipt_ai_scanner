@@ -14,10 +14,8 @@ const fastify = Fastify({
 });
 
 // CORS
-const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [];
-if (allowedOrigins.length === 0) {
-  throw new Error('ALLOWED_ORIGINS must be configured');
-}
+const allowedOriginsEnv = process.env.ALLOWED_ORIGINS || '*';
+const allowedOrigins = allowedOriginsEnv === '*' ? '*' : allowedOriginsEnv.split(',').map(o => o.trim());
 
 await fastify.register(cors, {
   origin: allowedOrigins,
@@ -27,13 +25,16 @@ await fastify.register(cors, {
 // Multipart
 await fastify.register(multipart);
 
-// Middleware
-fastify.addHook('onRequest', async (request, reply) => {
-  const start = Date.now();
-  reply.addHook('onSend', async (request, reply) => {
-    const duration = Date.now() - start;
+// Middleware - Request timing
+fastify.addHook('onRequest', async (request) => {
+  request.requestStartTime = Date.now();
+});
+
+fastify.addHook('onResponse', async (request, reply) => {
+  if (request.requestStartTime) {
+    const duration = Date.now() - request.requestStartTime;
     logRequest(request, reply, duration);
-  });
+  }
 });
 
 fastify.addHook('onError', async (request, reply, error) => {
