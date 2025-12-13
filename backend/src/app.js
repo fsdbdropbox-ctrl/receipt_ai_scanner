@@ -13,19 +13,7 @@ const fastify = Fastify({
   logger: true,
 });
 
-// CORS
-const allowedOriginsEnv = process.env.ALLOWED_ORIGINS || '*';
-const allowedOrigins = allowedOriginsEnv === '*' ? '*' : allowedOriginsEnv.split(',').map(o => o.trim());
-
-await fastify.register(cors, {
-  origin: allowedOrigins,
-  credentials: true,
-});
-
-// Multipart
-await fastify.register(multipart);
-
-// Middleware - Request timing
+// Request timing - register hooks BEFORE plugins
 fastify.addHook('onRequest', async (request) => {
   request.requestStartTime = Date.now();
 });
@@ -40,6 +28,18 @@ fastify.addHook('onResponse', async (request, reply) => {
 fastify.addHook('onError', async (request, reply, error) => {
   logError(error, { path: request.url, method: request.method });
 });
+
+// CORS
+const allowedOriginsEnv = process.env.ALLOWED_ORIGINS || '*';
+const allowedOrigins = allowedOriginsEnv === '*' ? '*' : allowedOriginsEnv.split(',').map(o => o.trim());
+
+await fastify.register(cors, {
+  origin: allowedOrigins,
+  credentials: true,
+});
+
+// Multipart
+await fastify.register(multipart);
 
 // Routes
 await fastify.register(async (fastify) => {
