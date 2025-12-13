@@ -39,7 +39,7 @@ flutter pub get
 
 2. Configure API URL (optional):
 ```bash
-flutter run --dart-define=API_BASE_URL=https://api.receiptscanner.app
+flutter run --dart-define=API_BASE_URL=https://receiptaiscanner-production.up.railway.app
 ```
 
 ### Backend

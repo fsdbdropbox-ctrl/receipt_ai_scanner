@@ -2,7 +2,7 @@ class AppConstants {
   // API
   static const String apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://api.receiptscanner.app',
+    defaultValue: 'https://receiptaiscanner-production.up.railway.app',
   );
   
   // Limits
