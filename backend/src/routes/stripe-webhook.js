@@ -1,21 +1,12 @@
 import Stripe from 'stripe';
-import fastifyRawBody from 'fastify-raw-body';
 import { setUserPlan } from '../services/user-service.js';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 export async function stripeWebhookRoute(fastify) {
-  // Register raw body parser for this specific route
-  await fastify.register(fastifyRawBody, {
-    field: 'rawBody',
-    global: false,
-    encoding: 'utf8',
-    runFirst: true,
-  });
-
-  fastify.post('/api/stripe-webhook', async (request, reply) => {
+  fastify.post('/api/stripe-webhook', { config: { rawBody: true } }, async (request, reply) => {
     const sig = request.headers['stripe-signature'];
-    const body = request.rawBody;
+    const buf = request.rawBody; // Buffer
 
     if (!sig || !body) {
       return reply.code(400).send({ error: 'Missing signature or body' });
@@ -24,7 +15,7 @@ export async function stripeWebhookRoute(fastify) {
     let event;
     try {
       event = stripe.webhooks.constructEvent(
-        body,
+        buf,
         sig,
         process.env.STRIPE_WEBHOOK_SECRET,
       );

@@ -1,7 +1,7 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import multipart from '@fastify/multipart';
-import fastifyRawBody from 'fastify-raw-body';
+import rawBody from '@fastify/raw-body';
 import { authMiddleware } from './middleware/auth.js';
 import { rateLimitMiddleware } from './middleware/rateLimit.js';
 import { scanInvoiceRoute } from './routes/scan-invoice.js';
@@ -23,6 +23,14 @@ if (allowedOrigins.length === 0) {
 await fastify.register(cors, {
   origin: allowedOrigins,
   credentials: true,
+});
+
+// Raw body parser (for Stripe webhooks)
+await fastify.register(rawBody, {
+  field: 'rawBody',
+  global: false,
+  encoding: false, // Buffer (necesario para Stripe)
+  runFirst: true,
 });
 
 // Multipart
