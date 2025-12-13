@@ -4,11 +4,17 @@ import { setUserPlan } from '../services/user-service.js';
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 export async function stripeWebhookRoute(fastify) {
-  fastify.post('/api/stripe-webhook', { config: { rawBody: true } }, async (request, reply) => {
+  // Register content type parser for raw body (Stripe webhooks)
+  fastify.addContentTypeParser('application/json', { parseAs: 'buffer' }, (req, body, done) => {
+    req.rawBody = body;
+    done(null, body);
+  });
+
+  fastify.post('/api/stripe-webhook', async (request, reply) => {
     const sig = request.headers['stripe-signature'];
     const buf = request.rawBody; // Buffer
 
-    if (!sig || !body) {
+    if (!sig || !buf) {
       return reply.code(400).send({ error: 'Missing signature or body' });
     }
 
@@ -28,7 +34,7 @@ export async function stripeWebhookRoute(fastify) {
       if (event.type === 'customer.subscription.created' || event.type === 'customer.subscription.updated') {
         const subscription = event.data.object;
         const installId = subscription.metadata?.installId;
-        
+
         // Activate premium if subscription is active or trialing (trial period)
         if (installId && (subscription.status === 'active' || subscription.status === 'trialing')) {
           await setUserPlan(installId, true);
@@ -38,12 +44,12 @@ export async function stripeWebhookRoute(fastify) {
           await setUserPlan(installId, false);
           fastify.log.info(`Premium deactivated for installId: ${installId} (status: ${subscription.status})`);
         }
-      } 
+      }
       // Fallback: Handle checkout completion (in case subscription metadata is missing)
       else if (event.type === 'checkout.session.completed') {
         const session = event.data.object;
         const installId = session.client_reference_id;
-        
+
         // Only activate if we have the installId and can't rely on subscription.created
         if (installId && session.mode === 'subscription') {
           // Try to get subscription from session
@@ -64,12 +70,12 @@ export async function stripeWebhookRoute(fastify) {
             await setUserPlan(installId, true);
           }
         }
-      } 
+      }
       // Handle subscription cancellation/deletion
       else if (event.type === 'customer.subscription.deleted') {
         const subscription = event.data.object;
         const installId = subscription.metadata?.installId;
-        
+
         if (installId) {
           await setUserPlan(installId, false);
           fastify.log.info(`Premium deactivated for installId: ${installId} (subscription deleted)`);
