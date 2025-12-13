@@ -1,7 +1,7 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import multipart from '@fastify/multipart';
-import rawBody from '@fastify/raw-body';
+import fastifyRawBody from 'fastify-raw-body';
 import { authMiddleware } from './middleware/auth.js';
 import { rateLimitMiddleware } from './middleware/rateLimit.js';
 import { scanInvoiceRoute } from './routes/scan-invoice.js';

@@ -1,12 +1,12 @@
 import Stripe from 'stripe';
-import rawBody from '@fastify/raw-body';
+import fastifyRawBody from 'fastify-raw-body';
 import { setUserPlan } from '../services/user-service.js';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 export async function stripeWebhookRoute(fastify) {
   // Register raw body parser for this specific route
-  await fastify.register(rawBody, {
+  await fastify.register(fastifyRawBody, {
     field: 'rawBody',
     global: false,
     encoding: 'utf8',
