@@ -15,6 +15,7 @@ const UPLOAD_LIMITS = {
     'image/webp',
     'image/heic',
     'image/heif',
+    'application/pdf', // PDF support for invoices
   ],
 };
 
@@ -38,6 +39,10 @@ const MAGIC_BYTES = {
   // HEIC has complex structure, relax validation for it
   'image/heic': null,
   'image/heif': null,
+  // PDF magic bytes: %PDF
+  'application/pdf': [
+    [0x25, 0x50, 0x44, 0x46], // %PDF
+  ],
 };
 
 /**
@@ -106,6 +111,11 @@ function detectMimeFromBytes(buffer) {
     }
   }
   
+  // PDF (%PDF)
+  if (buffer[0] === 0x25 && buffer[1] === 0x50 && buffer[2] === 0x44 && buffer[3] === 0x46) {
+    return 'application/pdf';
+  }
+  
   return null;
 }
 
@@ -144,7 +154,7 @@ export function validateUpload(buffer, declaredMimeType) {
   
   // Check if MIME type is allowed
   if (!effectiveMime || !UPLOAD_LIMITS.allowedMimeTypes.includes(effectiveMime)) {
-    result.error = `Invalid file type. Allowed: JPEG, PNG, GIF, WebP, HEIC`;
+    result.error = `Invalid file type. Allowed: JPEG, PNG, GIF, WebP, HEIC, PDF`;
     return result;
   }
   

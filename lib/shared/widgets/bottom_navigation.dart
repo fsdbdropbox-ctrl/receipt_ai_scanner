@@ -14,7 +14,13 @@ class AppBottomNavigation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final locale = Localizations.localeOf(context).toString();
+    // Safely get locale, defaulting to Spanish if not available yet
+    String locale;
+    try {
+      locale = Localizations.localeOf(context).toString();
+    } catch (_) {
+      locale = 'es'; // Default to Spanish
+    }
     final isSpanish = locale.startsWith('es');
 
     return Container(

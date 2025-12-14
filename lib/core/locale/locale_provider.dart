@@ -25,14 +25,18 @@ class LocaleProvider extends ChangeNotifier {
   Future<void> initialize() async {
     if (_initialized) return;
     
-    final prefs = await SharedPreferences.getInstance();
-    final savedLocale = prefs.getString(_localeKey);
-    
-    if (savedLocale != null) {
-      // User has manually selected a locale
-      _locale = Locale(savedLocale);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedLocale = prefs.getString(_localeKey);
+      
+      if (savedLocale != null) {
+        // User has manually selected a locale
+        _locale = Locale(savedLocale);
+      }
+    } catch (_) {
+      // SharedPreferences might fail on first web load, ignore
     }
-    // If no saved preference, _locale stays null and system locale will be used
+    // If no saved preference, _locale stays null and default will be used
     
     _initialized = true;
     notifyListeners();
@@ -43,21 +47,29 @@ class LocaleProvider extends ChangeNotifier {
     if (!supportedLocales.contains(locale)) return;
     
     _locale = locale;
-    
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_localeKey, locale.languageCode);
-    
     notifyListeners();
+    
+    // Save to preferences (non-blocking)
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_localeKey, locale.languageCode);
+    } catch (_) {
+      // Ignore storage errors
+    }
   }
   
   /// Clear manual preference (use system locale)
   Future<void> clearLocale() async {
     _locale = null;
-    
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_localeKey);
-    
     notifyListeners();
+    
+    // Remove from preferences (non-blocking)
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_localeKey);
+    } catch (_) {
+      // Ignore storage errors
+    }
   }
   
   /// Check if current language is Spanish
