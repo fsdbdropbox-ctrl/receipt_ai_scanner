@@ -8,6 +8,7 @@ import { scanInvoiceRoute } from './routes/scan-invoice.js';
 import { meRoute } from './routes/me.js';
 import { createCheckoutSessionRoute } from './routes/create-checkout-session.js';
 import { stripeWebhookRoute } from './routes/stripe-webhook.js';
+import { quotaRoute } from './routes/quota.js';
 import { logRequest, logError } from './utils/logger.js';
 import { getUploadLimits } from './middleware/uploadValidation.js';
 
@@ -114,6 +115,7 @@ await fastify.register(async (fastify) => {
   await fastify.register(scanInvoiceRoute);
   await fastify.register(meRoute);
   await fastify.register(createCheckoutSessionRoute);
+  await fastify.register(quotaRoute);
 });
 
 // Stripe webhook (no auth, uses signature verification)

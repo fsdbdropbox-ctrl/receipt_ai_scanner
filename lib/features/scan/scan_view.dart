@@ -6,6 +6,7 @@ import 'package:receipt_ai_scanner/features/result/result_view.dart';
 import 'package:receipt_ai_scanner/features/paywall/paywall_view.dart';
 import 'package:receipt_ai_scanner/core/file_picker/invoice_image_picker.dart';
 import 'package:receipt_ai_scanner/core/locale/locale_provider.dart';
+import 'package:receipt_ai_scanner/core/quota/quota_provider.dart';
 import 'package:receipt_ai_scanner/shared/widgets/quota_banner.dart';
 import 'package:receipt_ai_scanner/shared/widgets/language_selector.dart';
 import 'package:receipt_ai_scanner/shared/utils/constants.dart';
@@ -42,10 +43,15 @@ class ScanView extends StatelessWidget {
           ),
           body: Column(
             children: [
-              QuotaBanner(
-                scansLeft: viewModel.scanResult?.quotaInfo.scansLeft ?? 5,
-                isPremium: viewModel.scanResult?.quotaInfo.isPremium ?? false,
-                onUpgrade: () => _navigateToPaywall(context),
+              Consumer<QuotaProvider>(
+                builder: (context, quotaProvider, _) {
+                  return QuotaBanner(
+                    scansLeft: quotaProvider.scansLeft,
+                    isPremium: quotaProvider.isPremium,
+                    quotaInfo: quotaProvider.quotaInfo,
+                    onUpgrade: () => _navigateToPaywall(context),
+                  );
+                },
               ),
               Expanded(
                 child: _buildContent(context, viewModel),
@@ -271,10 +277,20 @@ class ScanView extends StatelessWidget {
   Widget _buildSuccessState(BuildContext context, ScanViewModel viewModel) {
     // Capture invoiceData BEFORE scheduling callback to avoid race condition
     final invoiceData = viewModel.scanResult?.invoiceData;
+    final quotaInfo = viewModel.scanResult?.quotaInfo;
     
     // Navigate to result view
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (invoiceData != null) {
+        // Update quota provider with latest quota from scan response
+        if (quotaInfo != null) {
+          final quotaProvider = context.read<QuotaProvider>();
+          quotaProvider.updateQuota(QuotaInfo.simple(
+            scansLeft: quotaInfo.scansLeft,
+            isPremium: quotaInfo.isPremium,
+          ));
+        }
+        
         Navigator.of(context).push(
           MaterialPageRoute(
             builder: (_) => ResultView(invoiceData: invoiceData),

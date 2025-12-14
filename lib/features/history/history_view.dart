@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:receipt_ai_scanner/features/history/history_view_model.dart';
+import 'package:receipt_ai_scanner/features/history/history_detail_view.dart';
 import 'package:receipt_ai_scanner/shared/models/history_entry.dart';
 import 'package:receipt_ai_scanner/shared/models/invoice_data.dart';
 import 'package:receipt_ai_scanner/core/utils/csv_helper.dart';
@@ -283,6 +284,9 @@ class _HistoryViewState extends State<HistoryView> {
         onTap: () {
           if (viewModel.selectionMode) {
             viewModel.toggleSelection(entry.id);
+          } else {
+            // Open detail view
+            _openEntryDetail(context, entry, viewModel);
           }
         },
         onLongPress: () {
@@ -596,6 +600,25 @@ class _HistoryViewState extends State<HistoryView> {
         ],
       ),
     );
+  }
+
+  /// Navigate to entry detail view
+  Future<void> _openEntryDetail(
+    BuildContext context,
+    HistoryEntry entry,
+    HistoryViewModel viewModel,
+  ) async {
+    final deleted = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => HistoryDetailView(entry: entry),
+      ),
+    );
+
+    // Refresh list if entry was deleted
+    if (deleted == true && context.mounted) {
+      viewModel.loadHistory();
+    }
   }
 }
 

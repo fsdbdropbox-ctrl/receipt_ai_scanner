@@ -6,6 +6,7 @@ import 'package:receipt_ai_scanner/features/scan/scan_view_model.dart';
 import 'package:receipt_ai_scanner/core/auth/installation_id_service.dart';
 import 'package:receipt_ai_scanner/core/payments/entitlement_service.dart';
 import 'package:receipt_ai_scanner/core/locale/locale_provider.dart';
+import 'package:receipt_ai_scanner/core/quota/quota_provider.dart';
 import 'package:receipt_ai_scanner/shared/utils/constants.dart';
 
 void main() async {
@@ -46,6 +47,9 @@ class ReceiptDataApp extends StatelessWidget {
             installationIdService: InstallationIdService(),
             entitlementService: EntitlementService(),
           ),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => QuotaProvider()..refreshQuota(),
         ),
       ],
       child: Consumer<LocaleProvider>(
