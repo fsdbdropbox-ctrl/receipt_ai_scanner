@@ -157,17 +157,20 @@ class ScanView extends StatelessWidget {
   }
 
   Widget _buildSuccessState(BuildContext context, ScanViewModel viewModel) {
+    // Capture invoiceData BEFORE scheduling callback to avoid race condition
+    final invoiceData = viewModel.scanResult?.invoiceData;
+    
     // Navigate to result view
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (viewModel.scanResult != null && viewModel.scanResult!.invoiceData != null) {
+      if (invoiceData != null) {
         Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (_) => ResultView(invoiceData: viewModel.scanResult!.invoiceData!),
+            builder: (_) => ResultView(invoiceData: invoiceData),
           ),
         );
         viewModel.reset();
       } else {
-        // If scanResult exists but invoiceData is null, treat as error
+        // If invoiceData is null, treat as error
         viewModel.reset();
       }
     });
