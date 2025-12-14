@@ -159,12 +159,15 @@ class ScanView extends StatelessWidget {
   Widget _buildSuccessState(BuildContext context, ScanViewModel viewModel) {
     // Navigate to result view
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (viewModel.scanResult != null) {
+      if (viewModel.scanResult != null && viewModel.scanResult!.invoiceData != null) {
         Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (_) => ResultView(invoiceData: viewModel.scanResult!.invoiceData),
+            builder: (_) => ResultView(invoiceData: viewModel.scanResult!.invoiceData!),
           ),
         );
+        viewModel.reset();
+      } else {
+        // If scanResult exists but invoiceData is null, treat as error
         viewModel.reset();
       }
     });
