@@ -5,6 +5,17 @@ class AppConstants {
     defaultValue: 'https://receiptaiscanner-production.up.railway.app',
   );
   
+  // Monitoring
+  static const String sentryDsn = String.fromEnvironment(
+    'SENTRY_DSN',
+    defaultValue: '',
+  );
+  
+  static const String environment = String.fromEnvironment(
+    'ENVIRONMENT',
+    defaultValue: 'production',
+  );
+  
   // Limits
   static const int dailyFreeLimit = 5;
   static const int maxFileSizeMB = 10;

@@ -1,6 +1,7 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import multipart from '@fastify/multipart';
+import { initSentry, default as Sentry } from './config/sentry.js';
 import { authMiddleware } from './middleware/auth.js';
 import { rateLimitMiddleware } from './middleware/rateLimit.js';
 import { scanInvoiceRoute } from './routes/scan-invoice.js';
@@ -8,6 +9,9 @@ import { meRoute } from './routes/me.js';
 import { createCheckoutSessionRoute } from './routes/create-checkout-session.js';
 import { stripeWebhookRoute } from './routes/stripe-webhook.js';
 import { logRequest, logError } from './utils/logger.js';
+
+// Initialize Sentry early
+initSentry();
 
 const fastify = Fastify({
   logger: true,
@@ -27,6 +31,19 @@ fastify.addHook('onResponse', async (request, reply) => {
 
 fastify.addHook('onError', async (request, reply, error) => {
   logError(error, { path: request.url, method: request.method });
+  
+  // Report to Sentry
+  if (process.env.SENTRY_DSN) {
+    Sentry.captureException(error, {
+      tags: {
+        path: request.url,
+        method: request.method,
+      },
+      extra: {
+        installId: request.installId,
+      },
+    });
+  }
 });
 
 // CORS

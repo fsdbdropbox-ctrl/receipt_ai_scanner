@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:receipt_ai_scanner/core/ai/invoice_scanner_service.dart';
 import 'package:receipt_ai_scanner/core/auth/installation_id_service.dart';
 import 'package:receipt_ai_scanner/core/payments/entitlement_service.dart';
@@ -50,12 +51,36 @@ class ScanViewModel extends ChangeNotifier {
     } on ScanError catch (e) {
       _error = e;
       _state = ScanState.error;
-    } catch (e) {
+      // Report to Sentry
+      await Sentry.captureException(
+        e,
+        withScope: (scope) {
+          scope.setTag('error_type', 'scan_error');
+          scope.setTag('error_code', e.code.toString());
+          scope.setContexts('scan', {
+            'locale': locale,
+            'imageSize': imageBytes.length,
+          });
+        },
+      );
+    } catch (e, stackTrace) {
       _error = ScanError(
         code: ScanErrorCode.unknown,
         message: e.toString(),
       );
       _state = ScanState.error;
+      // Report unexpected errors to Sentry
+      await Sentry.captureException(
+        e,
+        stackTrace: stackTrace,
+        withScope: (scope) {
+          scope.setTag('error_type', 'unexpected_error');
+          scope.setContexts('scan', {
+            'locale': locale,
+            'imageSize': imageBytes.length,
+          });
+        },
+      );
     }
     notifyListeners();
   }
