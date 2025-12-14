@@ -100,12 +100,13 @@ class QuotaBanner extends StatelessWidget {
         icon = Icons.warning_amber_rounded;
         
         if (isPremium && quotaInfo?.daysUntilReset != null) {
+          final days = quotaInfo?.daysUntilReset ?? 0;
           message = isSpanish
               ? 'Límite mensual alcanzado'
               : 'Monthly limit reached';
           secondaryMessage = isSpanish
-              ? 'Se reinicia en ${quotaInfo!.daysUntilReset} días'
-              : 'Resets in ${quotaInfo!.daysUntilReset} days';
+              ? 'Se reinicia en $days días'
+              : 'Resets in $days days';
         } else {
           message = isSpanish
               ? 'Límite alcanzado'
@@ -138,9 +139,10 @@ class QuotaBanner extends StatelessWidget {
         final period = quotaInfo?.period ?? 'daily';
         if (period == 'monthly' && quotaInfo?.limit != null) {
           final used = quotaInfo?.scansUsed ?? 0;
+          final limit = quotaInfo?.limit ?? 1000;
           message = isSpanish
-              ? '$used / ${quotaInfo!.limit} escaneos usados'
-              : '$used / ${quotaInfo!.limit} scans used';
+              ? '$used / $limit escaneos usados'
+              : '$used / $limit scans used';
         } else {
           message = isSpanish
               ? '$scansLeft escaneos restantes hoy'

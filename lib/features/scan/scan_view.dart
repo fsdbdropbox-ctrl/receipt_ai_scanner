@@ -284,18 +284,26 @@ class ScanView extends StatelessWidget {
       if (invoiceData != null) {
         // Update quota provider with latest quota from scan response
         if (quotaInfo != null) {
-          final quotaProvider = context.read<QuotaProvider>();
-          quotaProvider.updateQuota(QuotaInfo.simple(
-            scansLeft: quotaInfo.scansLeft,
-            isPremium: quotaInfo.isPremium,
-          ));
+          try {
+            final quotaProvider = context.read<QuotaProvider>();
+            quotaProvider.updateQuota(QuotaInfo.simple(
+              scansLeft: quotaInfo.scansLeft,
+              isPremium: quotaInfo.isPremium,
+            ));
+          } catch (_) {
+            // Provider not available, skip quota update
+          }
         }
         
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => ResultView(invoiceData: invoiceData),
-          ),
-        );
+        try {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => ResultView(invoiceData: invoiceData),
+            ),
+          );
+        } catch (_) {
+          // Navigation failed, skip
+        }
         viewModel.reset();
       } else {
         // If invoiceData is null, treat as error

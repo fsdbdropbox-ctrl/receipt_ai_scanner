@@ -57,8 +57,8 @@ class ReceiptDataApp extends StatelessWidget {
           return MaterialApp(
             title: AppConstants.appName,
             debugShowCheckedModeBanner: false,
-            // Locale configuration
-            locale: localeProvider.locale,
+            // Locale configuration - use currentLocale which never returns null
+            locale: localeProvider.currentLocale,
             supportedLocales: LocaleProvider.supportedLocales,
             localeResolutionCallback: LocaleProvider.localeResolutionCallback,
             theme: ThemeData(

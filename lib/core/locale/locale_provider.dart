@@ -65,9 +65,14 @@ class LocaleProvider extends ChangeNotifier {
     if (_locale != null) {
       return _locale!.languageCode == 'es';
     }
-    // Check system locale
-    final systemLocale = Localizations.localeOf(context);
-    return systemLocale.languageCode == 'es';
+    // Try to get system locale, but handle cases where it's not available yet
+    try {
+      final systemLocale = Localizations.localeOf(context);
+      return systemLocale.languageCode == 'es';
+    } catch (_) {
+      // Fallback to default (Spanish-first strategy)
+      return true;
+    }
   }
   
   /// Locale resolution callback for MaterialApp
