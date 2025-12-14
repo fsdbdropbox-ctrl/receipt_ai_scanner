@@ -19,15 +19,15 @@ void main() async {
         options.tracesSampleRate = 0.1;
         options.environment = AppConstants.environment;
       },
-      appRunner: () => runApp(const ReceiptScannerApp()),
+      appRunner: () => runApp(const ReceiptDataApp()),
     );
   } else {
-    runApp(const ReceiptScannerApp());
+    runApp(const ReceiptDataApp());
   }
 }
 
-class ReceiptScannerApp extends StatelessWidget {
-  const ReceiptScannerApp({super.key});
+class ReceiptDataApp extends StatelessWidget {
+  const ReceiptDataApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -41,7 +41,7 @@ class ReceiptScannerApp extends StatelessWidget {
         ),
       ],
       child: MaterialApp(
-        title: 'Receipt AI Scanner',
+        title: AppConstants.appName,
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(

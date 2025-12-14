@@ -41,8 +41,8 @@ export async function stripeWebhookRoute(fastify) {
     }
 
     // Log event (sanitized)
-    fastify.log.info({ 
-      eventId: event.id, 
+    fastify.log.info({
+      eventId: event.id,
       type: event.type,
     }, 'Webhook event received');
 
@@ -61,8 +61,8 @@ export async function stripeWebhookRoute(fastify) {
       let processed = false;
 
       // Handle subscription events
-      if (event.type === 'customer.subscription.created' || 
-          event.type === 'customer.subscription.updated') {
+      if (event.type === 'customer.subscription.created' ||
+        event.type === 'customer.subscription.updated') {
         const subscription = event.data.object;
         const installId = subscription.metadata?.installId;
         const status = subscription.status;
@@ -71,7 +71,7 @@ export async function stripeWebhookRoute(fastify) {
           // Active states that grant premium access
           if (status === 'active' || status === 'trialing') {
             await setUserPlan(installId, true);
-            fastify.log.info({ 
+            fastify.log.info({
               installId: installId.substring(0, 8) + '...',
               status,
             }, 'Premium activated');
@@ -80,7 +80,7 @@ export async function stripeWebhookRoute(fastify) {
           // States that revoke premium access
           else if (['past_due', 'unpaid', 'canceled', 'incomplete_expired'].includes(status)) {
             await setUserPlan(installId, false);
-            fastify.log.info({ 
+            fastify.log.info({
               installId: installId.substring(0, 8) + '...',
               status,
             }, 'Premium deactivated');
@@ -97,7 +97,7 @@ export async function stripeWebhookRoute(fastify) {
 
         if (installId) {
           await setUserPlan(installId, false);
-          fastify.log.info({ 
+          fastify.log.info({
             installId: installId.substring(0, 8) + '...',
           }, 'Premium deactivated (subscription deleted)');
           processed = true;
@@ -114,7 +114,7 @@ export async function stripeWebhookRoute(fastify) {
             const subscription = await stripe.subscriptions.retrieve(session.subscription);
             if (subscription.status === 'active' || subscription.status === 'trialing') {
               await setUserPlan(installId, true);
-              fastify.log.info({ 
+              fastify.log.info({
                 installId: installId.substring(0, 8) + '...',
               }, 'Premium activated via checkout');
               processed = true;
@@ -130,7 +130,7 @@ export async function stripeWebhookRoute(fastify) {
         const invoice = event.data.object;
         // Log for monitoring, but don't immediately revoke
         // (subscription.updated will handle status changes)
-        fastify.log.warn({ 
+        fastify.log.warn({
           customerId: invoice.customer,
           attemptCount: invoice.attempt_count,
         }, 'Payment failed');
@@ -138,8 +138,8 @@ export async function stripeWebhookRoute(fastify) {
 
       // Mark event as processed
       try {
-        await markEventProcessed(event.id, { 
-          type: event.type, 
+        await markEventProcessed(event.id, {
+          type: event.type,
           processed,
         });
       } catch (err) {

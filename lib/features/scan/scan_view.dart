@@ -5,6 +5,7 @@ import 'package:receipt_ai_scanner/features/result/result_view.dart';
 import 'package:receipt_ai_scanner/features/paywall/paywall_view.dart';
 import 'package:receipt_ai_scanner/core/file_picker/invoice_image_picker.dart';
 import 'package:receipt_ai_scanner/shared/widgets/quota_banner.dart';
+import 'package:receipt_ai_scanner/shared/utils/constants.dart';
 
 class ScanView extends StatelessWidget {
   const ScanView({super.key});
@@ -24,7 +25,7 @@ class ScanView extends StatelessWidget {
             backgroundColor: Colors.white,
             elevation: 0,
             title: const Text(
-              'Receipt AI Scanner',
+              AppConstants.appName,
               style: TextStyle(
                 color: Color(0xFF1E3A8A),
                 fontWeight: FontWeight.bold,

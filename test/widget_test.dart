@@ -2,13 +2,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:receipt_ai_scanner/main.dart';
 
 void main() {
-  testWidgets('Receipt scanner app smoke test', (WidgetTester tester) async {
+  testWidgets('ReceiptData app smoke test', (WidgetTester tester) async {
     // Build our app and trigger a frame.
-    await tester.pumpWidget(const ReceiptScannerApp());
+    await tester.pumpWidget(const ReceiptDataApp());
     await tester.pumpAndSettle();
 
     // Verify that the app title is present
-    expect(find.text('Receipt AI Scanner'), findsOneWidget);
+    expect(find.text('ReceiptData'), findsOneWidget);
 
     // Verify that the bottom navigation is present
     expect(find.text('Scan'), findsOneWidget);

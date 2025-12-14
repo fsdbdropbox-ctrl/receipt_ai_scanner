@@ -1,5 +1,5 @@
 name: receipt_ai_scanner
-description: AI-powered receipt and invoice scanner with automatic data extraction
+description: ReceiptData - Turn paper receipts into structured data in seconds. Scan to CSV.
 publish_to: 'none'
 version: 1.0.0+1
 

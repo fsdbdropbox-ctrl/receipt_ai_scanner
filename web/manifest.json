@@ -1,13 +1,14 @@
 {
-    "name": "Receipt AI Scanner",
-    "short_name": "Receipt AI",
+    "name": "ReceiptData - Scan to CSV",
+    "short_name": "ReceiptData",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#2563EB",
     "theme_color": "#2563EB",
-    "description": "AI-powered receipt and invoice scanner with automatic data extraction",
+    "description": "Turn paper receipts into structured data in seconds. Extract vendor, date, total, and tax automatically.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
+    "categories": ["productivity", "utilities", "business"],
     "icons": [
         {
             "src": "icons/Icon-192.png",
