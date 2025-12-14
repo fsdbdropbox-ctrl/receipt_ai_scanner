@@ -21,11 +21,9 @@ jobs:
           cache: true
       
       - name: Get Flutter dependencies
-        working-directory: receipt_ai_scanner
         run: flutter pub get
       
       - name: Build Flutter Web
-        working-directory: receipt_ai_scanner
         run: flutter build web --release --dart-define=API_BASE_URL=https://api.receiptdata.app
       
       - name: Deploy to Cloudflare Pages
@@ -34,6 +32,6 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           projectName: receiptdata
-          directory: receipt_ai_scanner/build/web
+          directory: build/web
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
 
