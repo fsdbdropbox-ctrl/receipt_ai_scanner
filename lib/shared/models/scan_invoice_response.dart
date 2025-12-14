@@ -27,9 +27,19 @@ class ScanInvoiceResponse {
   });
 
   factory ScanInvoiceResponse.fromJson(Map<String, dynamic> json, String rawResponse) {
+    // Safely extract data and quota, handling null cases
+    final dataJson = json['data'];
+    final quotaJson = json['quota'];
+    
+    if (dataJson == null || quotaJson == null) {
+      throw FormatException(
+        'Missing required fields in response: data=${dataJson != null}, quota=${quotaJson != null}',
+      );
+    }
+    
     return ScanInvoiceResponse(
-      invoiceData: InvoiceData.fromJson(json['data'] as Map<String, dynamic>, rawResponse),
-      quotaInfo: QuotaInfo.fromJson(json['quota'] as Map<String, dynamic>),
+      invoiceData: InvoiceData.fromJson(dataJson as Map<String, dynamic>, rawResponse),
+      quotaInfo: QuotaInfo.fromJson(quotaJson as Map<String, dynamic>),
     );
   }
 }

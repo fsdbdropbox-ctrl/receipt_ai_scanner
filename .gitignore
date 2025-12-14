@@ -11,6 +11,18 @@
 *.iws
 .idea/
 
+# IDE
+.vscode/
+*.code-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+*.log
+*.tgz
+
 # Environment
 .env
 .env.local

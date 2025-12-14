@@ -53,7 +53,13 @@ class InvoiceScannerService {
         throw ScanError.fromApiResponse(response.statusCode, errorBody);
       }
 
-      final json = RobustJsonParser.tryParse(response.body) as Map<String, dynamic>;
+      final json = RobustJsonParser.tryParse(response.body);
+      if (json == null || json is! Map<String, dynamic>) {
+        throw ScanError(
+          code: ScanErrorCode.unknown,
+          message: 'Invalid JSON response from server',
+        );
+      }
       return ScanInvoiceResponse.fromJson(json, response.body);
     } on ScanError {
       rethrow;
