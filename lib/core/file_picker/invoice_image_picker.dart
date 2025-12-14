@@ -29,10 +29,10 @@ class InvoiceImagePicker {
 
   static Future<Uint8List?> pickFromFile() async {
     // Use withData: true for all platforms - file_picker handles it correctly
-    // Allow images AND PDFs for invoice scanning
+    // Only allow images (no PDF, no GIF - only formats that Sharp/Gemini process well)
     final result = await fp.FilePicker.platform.pickFiles(
       type: fp.FileType.custom,
-      allowedExtensions: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif', 'pdf'],
+      allowedExtensions: ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'],
       withData: true,
     );
     

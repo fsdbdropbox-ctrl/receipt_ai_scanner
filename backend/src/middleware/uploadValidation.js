@@ -7,16 +7,18 @@
 const UPLOAD_LIMITS = {
   maxFileSizeBytes: 10 * 1024 * 1024, // 10MB
   maxFileSizeMB: 10,
-  allowedMimeTypes: [
+  // Only image formats that Sharp/Gemini process well
+  // No PDF (requires rasterization), no GIF (animations)
+  allowedMimeTypes: new Set([
     'image/jpeg',
-    'image/jpg',
     'image/png',
-    'image/gif',
     'image/webp',
     'image/heic',
     'image/heif',
-    'application/pdf', // PDF support for invoices
-  ],
+    // Legacy/alternative MIME types
+    'image/pjpeg',   // Progressive JPEG (IE legacy)
+    'image/x-png',   // Old PNG MIME
+  ]),
 };
 
 // Magic bytes for common image formats
@@ -27,22 +29,16 @@ const MAGIC_BYTES = {
   'image/png': [
     [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A],
   ],
-  'image/gif': [
-    [0x47, 0x49, 0x46, 0x38, 0x37, 0x61], // GIF87a
-    [0x47, 0x49, 0x46, 0x38, 0x39, 0x61], // GIF89a
-  ],
   'image/webp': [
     // RIFF....WEBP (bytes 0-3 = RIFF, bytes 8-11 = WEBP)
-    // We check first 4 bytes for RIFF
     [0x52, 0x49, 0x46, 0x46],
   ],
   // HEIC has complex structure, relax validation for it
   'image/heic': null,
   'image/heif': null,
-  // PDF magic bytes: %PDF
-  'application/pdf': [
-    [0x25, 0x50, 0x44, 0x46], // %PDF
-  ],
+  // Legacy types map to standard types
+  'image/pjpeg': null,  // Trust declared type
+  'image/x-png': null,  // Trust declared type
 };
 
 /**
@@ -78,7 +74,7 @@ function checkMagicBytes(buffer, mimeType) {
 function detectMimeFromBytes(buffer) {
   if (buffer.length < 8) return null;
   
-  // JPEG
+  // JPEG (also handles JFIF, EXIF - all start with FF D8 FF)
   if (buffer[0] === 0xFF && buffer[1] === 0xD8 && buffer[2] === 0xFF) {
     return 'image/jpeg';
   }
@@ -86,11 +82,6 @@ function detectMimeFromBytes(buffer) {
   // PNG
   if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47) {
     return 'image/png';
-  }
-  
-  // GIF
-  if (buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46) {
-    return 'image/gif';
   }
   
   // WebP (RIFF....WEBP)
@@ -111,9 +102,14 @@ function detectMimeFromBytes(buffer) {
     }
   }
   
-  // PDF (%PDF)
+  // PDF (%PDF) - detect for better error message, but NOT allowed
   if (buffer[0] === 0x25 && buffer[1] === 0x50 && buffer[2] === 0x44 && buffer[3] === 0x46) {
     return 'application/pdf';
+  }
+  
+  // GIF - detect for better error message, but NOT allowed
+  if (buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46) {
+    return 'image/gif';
   }
   
   return null;
@@ -123,54 +119,76 @@ function detectMimeFromBytes(buffer) {
  * Validate uploaded image
  * @param {Buffer} buffer - Image buffer
  * @param {string} declaredMimeType - MIME type declared by client
- * @returns {Object} - Validation result
+ * @param {Object} logger - Optional logger for debugging
+ * @returns {Object} - Validation result with statusCode for HTTP response
  */
-export function validateUpload(buffer, declaredMimeType) {
+export function validateUpload(buffer, declaredMimeType, logger = console) {
   const result = {
     valid: false,
     error: null,
+    statusCode: 400, // Default to 400, will be 415 for unsupported type
     detectedMime: null,
+    declaredMime: declaredMimeType,
     size: buffer?.length || 0,
   };
   
   // Check if buffer exists
   if (!buffer || buffer.length === 0) {
     result.error = 'No file provided';
+    result.statusCode = 400;
     return result;
   }
   
   // Check file size
   if (buffer.length > UPLOAD_LIMITS.maxFileSizeBytes) {
     result.error = `File too large. Maximum size is ${UPLOAD_LIMITS.maxFileSizeMB}MB`;
+    result.statusCode = 413; // Payload Too Large
     return result;
   }
   
-  // Detect MIME from magic bytes
+  // Detect MIME from magic bytes (primary source)
   const detectedMime = detectMimeFromBytes(buffer);
   result.detectedMime = detectedMime;
+  
+  // Log for debugging
+  logger.info?.({ declaredMimeType, detectedMime, size: buffer.length }, 'Upload validation');
   
   // If we detected a MIME type, use it; otherwise trust declared type
   const effectiveMime = detectedMime || declaredMimeType?.toLowerCase();
   
   // Check if MIME type is allowed
-  if (!effectiveMime || !UPLOAD_LIMITS.allowedMimeTypes.includes(effectiveMime)) {
-    result.error = `Invalid file type. Allowed: JPEG, PNG, GIF, WebP, HEIC, PDF`;
+  if (!effectiveMime || !UPLOAD_LIMITS.allowedMimeTypes.has(effectiveMime)) {
+    // Specific message for known unsupported types
+    if (effectiveMime === 'application/pdf') {
+      result.error = 'PDF files are not supported yet. Please take a photo of your receipt or export as an image.';
+    } else if (effectiveMime === 'image/gif') {
+      result.error = 'GIF files are not supported. Please use JPG, PNG, or WebP.';
+    } else if (effectiveMime?.startsWith('image/tiff') || effectiveMime === 'image/tiff') {
+      result.error = 'TIFF files are not supported. Please use JPG, PNG, or WebP.';
+    } else {
+      result.error = 'Unsupported file type. Only images are allowed (JPG, PNG, WebP, HEIC).';
+    }
+    result.statusCode = 415; // Unsupported Media Type
+    result.supportedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/heic'];
+    logger.warn?.({ declaredMimeType, detectedMime, effectiveMime }, 'Unsupported media type');
     return result;
   }
   
   // If declared MIME doesn't match detected, log warning but allow
-  // (some browsers send wrong MIME types)
+  // (some browsers send wrong MIME types like image/pjpeg)
   if (detectedMime && declaredMimeType && detectedMime !== declaredMimeType.toLowerCase()) {
-    console.warn(`MIME mismatch: declared=${declaredMimeType}, detected=${detectedMime}`);
+    logger.warn?.({ declaredMimeType, detectedMime }, 'MIME mismatch (allowing based on magic bytes)');
   }
   
   // Verify magic bytes match for known types
   if (detectedMime && !checkMagicBytes(buffer, detectedMime)) {
     result.error = 'File content does not match declared type';
+    result.statusCode = 400;
     return result;
   }
   
   result.valid = true;
+  result.statusCode = null; // No error
   return result;
 }
 
@@ -181,7 +199,6 @@ export function getUploadLimits() {
   return {
     maxSizeBytes: UPLOAD_LIMITS.maxFileSizeBytes,
     maxSizeMB: UPLOAD_LIMITS.maxFileSizeMB,
-    allowedTypes: UPLOAD_LIMITS.allowedMimeTypes,
+    allowedTypes: Array.from(UPLOAD_LIMITS.allowedMimeTypes),
   };
 }
-

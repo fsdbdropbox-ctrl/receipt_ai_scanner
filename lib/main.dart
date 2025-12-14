@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:receipt_ai_scanner/features/home/home_shell.dart';
@@ -61,6 +62,12 @@ class ReceiptDataApp extends StatelessWidget {
             locale: localeProvider.currentLocale,
             supportedLocales: LocaleProvider.supportedLocales,
             localeResolutionCallback: LocaleProvider.localeResolutionCallback,
+            // Localization delegates for Material widgets
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
             theme: ThemeData(
               colorScheme: ColorScheme.fromSeed(
                 seedColor: const Color(0xFF2563EB),

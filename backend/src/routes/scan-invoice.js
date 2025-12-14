@@ -92,17 +92,28 @@ export async function scanInvoiceRoute(fastify) {
       }
 
       // Validate upload (size, MIME, magic bytes)
-      const uploadValidation = validateUpload(imageBuffer, declaredMimeType);
+      const uploadValidation = validateUpload(imageBuffer, declaredMimeType, fastify.log);
       if (!uploadValidation.valid) {
         fastify.log.warn({ 
           error: uploadValidation.error,
           size: uploadValidation.size,
+          declaredMime: uploadValidation.declaredMime,
           detectedMime: uploadValidation.detectedMime,
+          statusCode: uploadValidation.statusCode,
         }, 'FAILED: upload validation');
-        return reply.code(400).send({
-          error: 'Invalid file',
+        
+        const responseBody = {
+          error: uploadValidation.statusCode === 415 ? 'Unsupported media type' : 'Invalid file',
           message: uploadValidation.error,
-        });
+        };
+        
+        // Include supported types for 415 errors
+        if (uploadValidation.supportedTypes) {
+          responseBody.supportedTypes = uploadValidation.supportedTypes;
+          responseBody.receivedType = uploadValidation.detectedMime || uploadValidation.declaredMime;
+        }
+        
+        return reply.code(uploadValidation.statusCode).send(responseBody);
       }
 
       fastify.log.info({ 

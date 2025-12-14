@@ -315,7 +315,10 @@ class ScanView extends StatelessWidget {
   }
 
   Widget _buildErrorState(BuildContext context, ScanViewModel viewModel) {
-    final locale = Localizations.localeOf(context).toString();
+    // Use PlatformDispatcher instead of Localizations.localeOf to avoid crashes
+    final locales = WidgetsBinding.instance.platformDispatcher.locales;
+    final locale = locales.isNotEmpty ? locales.first : const Locale('en');
+    final isSpanish = locale.languageCode == 'es';
     final error = viewModel.error;
 
     return Center(
@@ -331,14 +334,14 @@ class ScanView extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              error?.message ?? 'An error occurred',
+              error?.message ?? (isSpanish ? 'Error desconocido' : 'An error occurred'),
               style: Theme.of(context).textTheme.titleLarge,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
             ElevatedButton(
               onPressed: () => viewModel.reset(),
-              child: Text(locale.startsWith('es') ? 'Intentar de nuevo' : 'Try again'),
+              child: Text(isSpanish ? 'Intentar de nuevo' : 'Try again'),
             ),
           ],
         ),

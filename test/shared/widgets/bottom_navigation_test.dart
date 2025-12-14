@@ -1,12 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:receipt_ai_scanner/shared/widgets/bottom_navigation.dart';
 
 void main() {
   group('AppBottomNavigation', () {
-    testWidgets('displays scan and history tabs', (tester) async {
+    testWidgets('displays scan and history tabs in English', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
+          locale: const Locale('en'),
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [Locale('en'), Locale('es')],
           home: Scaffold(
             bottomNavigationBar: AppBottomNavigation(
               currentTab: AppTab.scan,
@@ -25,6 +33,13 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
+          locale: const Locale('en'),
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [Locale('en'), Locale('es')],
           home: Scaffold(
             bottomNavigationBar: AppBottomNavigation(
               currentTab: AppTab.scan,
@@ -40,9 +55,16 @@ void main() {
       expect(tappedTab, equals(AppTab.history));
     });
 
-    testWidgets('highlights current tab with correct color', (tester) async {
+    testWidgets('highlights current tab with correct icon', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
+          locale: const Locale('en'),
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [Locale('en'), Locale('es')],
           home: Scaffold(
             bottomNavigationBar: AppBottomNavigation(
               currentTab: AppTab.scan,
@@ -52,7 +74,7 @@ void main() {
         ),
       );
 
-      // Find the scan icon which should be active (blue)
+      // Find the scan icon which should be active (filled)
       final scanIcon = find.byIcon(Icons.document_scanner);
       expect(scanIcon, findsOneWidget);
     });
@@ -62,8 +84,9 @@ void main() {
         MaterialApp(
           locale: const Locale('es'),
           localizationsDelegates: const [
-            DefaultMaterialLocalizations.delegate,
-            DefaultWidgetsLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
           ],
           supportedLocales: const [Locale('es'), Locale('en')],
           home: Scaffold(
@@ -80,4 +103,3 @@ void main() {
     });
   });
 }
-

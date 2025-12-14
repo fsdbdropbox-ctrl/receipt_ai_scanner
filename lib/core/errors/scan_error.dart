@@ -2,7 +2,9 @@ enum ScanErrorCode {
   networkError,
   quotaExceeded,
   invalidImage,
+  unsupportedFileType,
   processingError,
+  fileTooLarge,
   unknown;
 
   String getMessage(String locale) {
@@ -20,6 +22,14 @@ enum ScanErrorCode {
         return isSpanish
             ? 'Imagen inválida. Intenta con otra foto.'
             : 'Invalid image. Try another photo.';
+      case ScanErrorCode.unsupportedFileType:
+        return isSpanish
+            ? 'Tipo de archivo no soportado. Usa JPG, PNG o WebP.'
+            : 'Unsupported file type. Use JPG, PNG, or WebP.';
+      case ScanErrorCode.fileTooLarge:
+        return isSpanish
+            ? 'Archivo demasiado grande. Máximo 10MB.'
+            : 'File too large. Maximum 10MB.';
       case ScanErrorCode.processingError:
         return isSpanish
             ? 'Error al procesar. Intenta de nuevo.'
@@ -32,7 +42,7 @@ enum ScanErrorCode {
   }
 }
 
-class ScanError {
+class ScanError implements Exception {
   final ScanErrorCode code;
   final String message;
 
@@ -42,28 +52,46 @@ class ScanError {
   });
 
   factory ScanError.fromApiResponse(int statusCode, Map<String, dynamic>? body) {
+    final apiMessage = body?['message']?.toString();
+    
     if (statusCode == 429) {
       return ScanError(
         code: ScanErrorCode.quotaExceeded,
-        message: body?['message']?.toString() ?? 'Quota exceeded',
+        message: apiMessage ?? 'Quota exceeded',
+      );
+    }
+    if (statusCode == 415) {
+      // Unsupported Media Type
+      return ScanError(
+        code: ScanErrorCode.unsupportedFileType,
+        message: apiMessage ?? 'Unsupported file type',
+      );
+    }
+    if (statusCode == 413) {
+      // Payload Too Large
+      return ScanError(
+        code: ScanErrorCode.fileTooLarge,
+        message: apiMessage ?? 'File too large',
       );
     }
     if (statusCode == 400) {
       return ScanError(
         code: ScanErrorCode.invalidImage,
-        message: body?['message']?.toString() ?? 'Invalid image',
+        message: apiMessage ?? 'Invalid image',
       );
     }
     if (statusCode >= 500) {
       return ScanError(
         code: ScanErrorCode.processingError,
-        message: body?['message']?.toString() ?? 'Processing error',
+        message: apiMessage ?? 'Processing error',
       );
     }
     return ScanError(
       code: ScanErrorCode.unknown,
-      message: body?['message']?.toString() ?? 'Unknown error',
+      message: apiMessage ?? 'Unknown error',
     );
   }
-}
 
+  @override
+  String toString() => 'ScanError($code): $message';
+}
