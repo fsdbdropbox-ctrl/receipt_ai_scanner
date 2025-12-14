@@ -1,8 +1,12 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:share_plus/share_plus.dart';
 import 'package:receipt_ai_scanner/shared/models/invoice_data.dart';
 import 'package:receipt_ai_scanner/shared/utils/regional_formatter.dart';
 import 'package:receipt_ai_scanner/shared/widgets/invoice_disclaimer.dart';
+import 'package:receipt_ai_scanner/core/utils/csv_helper.dart';
 
 class ResultView extends StatelessWidget {
   final InvoiceData invoiceData;
@@ -21,10 +25,66 @@ class ResultView extends StatelessWidget {
       appBar: AppBar(
         title: Text(isSpanish ? 'Resultado' : 'Result'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.copy),
-            onPressed: () => _copyToClipboard(context, locale),
-            tooltip: isSpanish ? 'Copiar' : 'Copy',
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            onSelected: (value) {
+              switch (value) {
+                case 'copy_text':
+                  _copyTextToClipboard(context, locale);
+                  break;
+                case 'copy_json':
+                  _copyJsonToClipboard(context, locale);
+                  break;
+                case 'export_csv':
+                  _exportToCSV(context, locale);
+                  break;
+                case 'share':
+                  _shareData(context, locale);
+                  break;
+              }
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'copy_text',
+                child: Row(
+                  children: [
+                    const Icon(Icons.copy, size: 20),
+                    const SizedBox(width: 12),
+                    Text(isSpanish ? 'Copiar texto' : 'Copy text'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'copy_json',
+                child: Row(
+                  children: [
+                    const Icon(Icons.code, size: 20),
+                    const SizedBox(width: 12),
+                    Text(isSpanish ? 'Copiar JSON' : 'Copy JSON'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'export_csv',
+                child: Row(
+                  children: [
+                    const Icon(Icons.table_chart, size: 20),
+                    const SizedBox(width: 12),
+                    Text(isSpanish ? 'Exportar CSV' : 'Export CSV'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'share',
+                child: Row(
+                  children: [
+                    const Icon(Icons.share, size: 20),
+                    const SizedBox(width: 12),
+                    Text(isSpanish ? 'Compartir' : 'Share'),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -196,11 +256,11 @@ class ResultView extends StatelessWidget {
     );
   }
 
-  void _copyToClipboard(BuildContext context, String locale) {
+  void _copyTextToClipboard(BuildContext context, String locale) {
     final isSpanish = locale.startsWith('es');
     final buffer = StringBuffer();
     
-    buffer.writeln('Total: ${RegionalFormatter.formatCurrency(invoiceData.total, invoiceData.currency, locale)}');
+    buffer.writeln('${isSpanish ? "Total" : "Total"}: ${RegionalFormatter.formatCurrency(invoiceData.total, invoiceData.currency, locale)}');
     if (invoiceData.vendor != null) {
       buffer.writeln('${isSpanish ? "Vendedor" : "Vendor"}: ${invoiceData.vendor}');
     }
@@ -216,9 +276,110 @@ class ResultView extends StatelessWidget {
     
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(isSpanish ? 'Copiado al portapapeles' : 'Copied to clipboard'),
+        content: Text(isSpanish ? 'Texto copiado al portapapeles' : 'Text copied to clipboard'),
+        duration: const Duration(seconds: 2),
       ),
     );
+  }
+
+  void _copyJsonToClipboard(BuildContext context, String locale) {
+    final isSpanish = locale.startsWith('es');
+    final json = {
+      'vendor': invoiceData.vendor,
+      'date': invoiceData.date?.toIso8601String(),
+      'total': invoiceData.total,
+      'tax': invoiceData.tax,
+      'category': invoiceData.category.name,
+      'currency': invoiceData.currency,
+      'confidence': invoiceData.confidence,
+    };
+
+    final jsonString = const JsonEncoder.withIndent('  ').convert(json);
+    Clipboard.setData(ClipboardData(text: jsonString));
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(isSpanish ? 'JSON copiado al portapapeles' : 'JSON copied to clipboard'),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  Future<void> _exportToCSV(BuildContext context, String locale) async {
+    final isSpanish = locale.startsWith('es');
+    final buffer = StringBuffer();
+    
+    // CSV Header
+    buffer.writeln('${isSpanish ? "Vendedor" : "Vendor"},${isSpanish ? "Fecha" : "Date"},${isSpanish ? "Total" : "Total"},${isSpanish ? "Impuesto" : "Tax"},${isSpanish ? "Categoría" : "Category"},${isSpanish ? "Moneda" : "Currency"}');
+    
+    // CSV Data
+    final vendor = invoiceData.vendor ?? '';
+    final date = invoiceData.date?.toIso8601String().split('T')[0] ?? '';
+    final total = invoiceData.total?.toString() ?? '';
+    final tax = invoiceData.tax?.toString() ?? '';
+    final category = invoiceData.category.getDisplayName(locale);
+    final currency = invoiceData.currency ?? 'USD';
+    
+    buffer.writeln('"$vendor","$date","$total","$tax","$category","$currency"');
+    
+    final csvContent = buffer.toString();
+    final filename = 'receipt_${DateTime.now().millisecondsSinceEpoch}.csv';
+
+    try {
+      await CsvHelper.exportCSV(csvContent, filename);
+      
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isSpanish 
+                ? (kIsWeb ? 'CSV descargado' : 'CSV copiado al portapapeles. Pégalo en Excel o Google Sheets.')
+                : (kIsWeb ? 'CSV downloaded' : 'CSV copied to clipboard. Paste it in Excel or Google Sheets.'),
+            ),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(isSpanish ? 'Error al exportar CSV: $e' : 'Error exporting CSV: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _shareData(BuildContext context, String locale) async {
+    final isSpanish = locale.startsWith('es');
+    final buffer = StringBuffer();
+    
+    buffer.writeln('${isSpanish ? "Recibo escaneado" : "Scanned Receipt"}\n');
+    buffer.writeln('${isSpanish ? "Vendedor" : "Vendor"}: ${invoiceData.vendor ?? "-"}');
+    buffer.writeln('${isSpanish ? "Fecha" : "Date"}: ${invoiceData.date != null ? RegionalFormatter.formatDate(invoiceData.date, locale) : "-"}');
+    buffer.writeln('${isSpanish ? "Total" : "Total"}: ${RegionalFormatter.formatCurrency(invoiceData.total, invoiceData.currency, locale)}');
+    if (invoiceData.tax != null) {
+      buffer.writeln('${isSpanish ? "Impuesto" : "Tax"}: ${RegionalFormatter.formatCurrency(invoiceData.tax, invoiceData.currency, locale)}');
+    }
+    buffer.writeln('${isSpanish ? "Categoría" : "Category"}: ${invoiceData.category.getDisplayName(locale)}');
+    
+    try {
+      await Share.share(
+        buffer.toString(),
+        subject: isSpanish ? 'Recibo escaneado' : 'Scanned Receipt',
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(isSpanish ? 'Error al compartir: $e' : 'Error sharing: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 }
 
