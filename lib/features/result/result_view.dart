@@ -7,14 +7,24 @@ import 'package:receipt_ai_scanner/shared/models/invoice_data.dart';
 import 'package:receipt_ai_scanner/shared/utils/regional_formatter.dart';
 import 'package:receipt_ai_scanner/shared/widgets/invoice_disclaimer.dart';
 import 'package:receipt_ai_scanner/core/utils/csv_helper.dart';
+import 'package:receipt_ai_scanner/core/history/history_service.dart';
 
-class ResultView extends StatelessWidget {
+class ResultView extends StatefulWidget {
   final InvoiceData invoiceData;
 
   const ResultView({
     super.key,
     required this.invoiceData,
   });
+
+  @override
+  State<ResultView> createState() => _ResultViewState();
+}
+
+class _ResultViewState extends State<ResultView> {
+  bool _isSaving = false;
+
+  InvoiceData get invoiceData => widget.invoiceData;
 
   @override
   Widget build(BuildContext context) {
@@ -88,22 +98,119 @@ class ResultView extends StatelessWidget {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      body: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildTotalCard(context, locale),
+                  const SizedBox(height: 16),
+                  _buildDetailsCard(context, locale),
+                  const SizedBox(height: 16),
+                  _buildConfidenceBadge(context, locale),
+                  const SizedBox(height: 24),
+                  const InvoiceDisclaimer(),
+                ],
+              ),
+            ),
+          ),
+          _buildBottomActions(context, isSpanish),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBottomActions(BuildContext context, bool isSpanish) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Row(
           children: [
-            _buildTotalCard(context, locale),
-            const SizedBox(height: 16),
-            _buildDetailsCard(context, locale),
-            const SizedBox(height: 16),
-            _buildConfidenceBadge(context, locale),
-            const SizedBox(height: 24),
-            const InvoiceDisclaimer(),
+            Expanded(
+              child: OutlinedButton(
+                onPressed: () => Navigator.of(context).pop(),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  side: const BorderSide(color: Color(0xFF93C5FD)),
+                ),
+                child: Text(isSpanish ? 'Descartar' : 'Discard'),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              flex: 2,
+              child: ElevatedButton(
+                onPressed: _isSaving ? null : () => _saveToHistory(context, isSpanish),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  backgroundColor: const Color(0xFF2563EB),
+                  foregroundColor: Colors.white,
+                ),
+                child: _isSaving
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : Text(
+                        isSpanish ? 'Guardar' : 'Save',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+              ),
+            ),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _saveToHistory(BuildContext context, bool isSpanish) async {
+    setState(() => _isSaving = true);
+
+    try {
+      await HistoryService.instance.saveEntry(invoiceData);
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(isSpanish ? 'Guardado en historial' : 'Saved to history'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+        Navigator.of(context).pop();
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(isSpanish ? 'Error al guardar: $e' : 'Error saving: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
   }
 
   Widget _buildTotalCard(BuildContext context, String locale) {

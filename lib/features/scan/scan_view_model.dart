@@ -15,7 +15,9 @@ enum ScanState {
 }
 
 class ScanViewModel extends ChangeNotifier {
+  // ignore: unused_field - kept for future use (premium checks, etc.)
   final InstallationIdService _installationIdService;
+  // ignore: unused_field - kept for future use (entitlement checks)
   final EntitlementService _entitlementService;
   final InvoiceScannerService _scannerService;
 

@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:receipt_ai_scanner/features/scan/scan_view_model.dart';
@@ -6,21 +5,34 @@ import 'package:receipt_ai_scanner/features/result/result_view.dart';
 import 'package:receipt_ai_scanner/features/paywall/paywall_view.dart';
 import 'package:receipt_ai_scanner/core/file_picker/invoice_image_picker.dart';
 import 'package:receipt_ai_scanner/shared/widgets/quota_banner.dart';
-import 'package:receipt_ai_scanner/core/errors/scan_error.dart';
 
 class ScanView extends StatelessWidget {
   const ScanView({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Receipt AI Scanner'),
-        centerTitle: true,
-      ),
-      body: Consumer<ScanViewModel>(
-        builder: (context, viewModel, _) {
-          return Column(
+    return Consumer<ScanViewModel>(
+      builder: (context, viewModel, _) {
+        // Show fullscreen scanning state
+        if (viewModel.state == ScanState.scanning) {
+          return _buildScanningState(context);
+        }
+
+        return Scaffold(
+          backgroundColor: const Color(0xFFF8FAFC),
+          appBar: AppBar(
+            backgroundColor: Colors.white,
+            elevation: 0,
+            title: const Text(
+              'Receipt AI Scanner',
+              style: TextStyle(
+                color: Color(0xFF1E3A8A),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            centerTitle: false,
+          ),
+          body: Column(
             children: [
               QuotaBanner(
                 scansLeft: viewModel.scanResult?.quotaInfo.scansLeft ?? 5,
@@ -31,9 +43,9 @@ class ScanView extends StatelessWidget {
                 child: _buildContent(context, viewModel),
               ),
             ],
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -42,7 +54,8 @@ class ScanView extends StatelessWidget {
       case ScanState.idle:
         return _buildIdleState(context, viewModel);
       case ScanState.scanning:
-        return _buildScanningState(context);
+        // Handled in build() for fullscreen experience
+        return const SizedBox.shrink();
       case ScanState.success:
         return _buildSuccessState(context, viewModel);
       case ScanState.error:
@@ -141,17 +154,89 @@ class ScanView extends StatelessWidget {
     final locale = Localizations.localeOf(context).toString();
     final isSpanish = locale.startsWith('es');
 
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const CircularProgressIndicator(),
-          const SizedBox(height: 24),
-          Text(
-            isSpanish ? 'Escaneando recibo...' : 'Scanning receipt...',
-            style: Theme.of(context).textTheme.titleLarge,
+    return Scaffold(
+      backgroundColor: const Color(0xFF1E3A8A),
+      body: SafeArea(
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Receipt animation container
+              Container(
+                width: 200,
+                height: 260,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.2),
+                    width: 1,
+                  ),
+                ),
+                child: Stack(
+                  children: [
+                    // Receipt lines
+                    Positioned(
+                      top: 32,
+                      left: 24,
+                      right: 24,
+                      child: Container(
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.3),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      top: 56,
+                      left: 24,
+                      right: 80,
+                      child: Container(
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(5),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      bottom: 40,
+                      left: 24,
+                      right: 100,
+                      child: Container(
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(5),
+                        ),
+                      ),
+                    ),
+                    // Scan line animation
+                    const _ScanLineAnimation(),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 48),
+              Text(
+                isSpanish ? 'Analizando recibo...' : 'Analyzing receipt...',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                isSpanish ? 'Identificando vendedor y total' : 'Identifying vendor and total',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.7),
+                  fontSize: 14,
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -248,6 +333,74 @@ class ScanView extends StatelessWidget {
       MaterialPageRoute(
         builder: (_) => const PaywallView(),
       ),
+    );
+  }
+}
+
+/// Animated scan line for the scanning state
+class _ScanLineAnimation extends StatefulWidget {
+  const _ScanLineAnimation();
+
+  @override
+  State<_ScanLineAnimation> createState() => _ScanLineAnimationState();
+}
+
+class _ScanLineAnimationState extends State<_ScanLineAnimation>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(seconds: 2),
+      vsync: this,
+    );
+    _animation = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+    _controller.repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, child) {
+        return Positioned(
+          top: _animation.value * 220 + 20,
+          left: 16,
+          right: 16,
+          child: Container(
+            height: 3,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Colors.transparent,
+                  const Color(0xFF2563EB).withOpacity(0.5),
+                  Colors.white,
+                  const Color(0xFF2563EB).withOpacity(0.5),
+                  Colors.transparent,
+                ],
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF2563EB).withOpacity(0.5),
+                  blurRadius: 8,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

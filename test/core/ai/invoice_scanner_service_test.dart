@@ -1,7 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:receipt_ai_scanner/core/ai/invoice_scanner_service.dart';
 import 'package:receipt_ai_scanner/core/auth/installation_id_service.dart';
-import 'package:receipt_ai_scanner/shared/models/scan_invoice_response.dart';
 
 void main() {
   group('InvoiceScannerService', () {

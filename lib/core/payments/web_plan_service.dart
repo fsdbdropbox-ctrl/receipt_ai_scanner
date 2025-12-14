@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:receipt_ai_scanner/shared/utils/constants.dart';
 import 'package:receipt_ai_scanner/core/auth/installation_id_service.dart';

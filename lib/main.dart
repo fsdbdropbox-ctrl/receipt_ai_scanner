@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
-import 'package:receipt_ai_scanner/features/scan/scan_view.dart';
+import 'package:receipt_ai_scanner/features/home/home_shell.dart';
 import 'package:receipt_ai_scanner/features/scan/scan_view_model.dart';
 import 'package:receipt_ai_scanner/core/auth/installation_id_service.dart';
 import 'package:receipt_ai_scanner/core/payments/entitlement_service.dart';
 import 'package:receipt_ai_scanner/shared/utils/constants.dart';
 
 void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
   final sentryDsn = AppConstants.sentryDsn;
   
   if (sentryDsn.isNotEmpty) {
@@ -49,7 +51,7 @@ class ReceiptScannerApp extends StatelessWidget {
           useMaterial3: true,
           fontFamily: 'SF Pro Display',
         ),
-        home: const ScanView(),
+        home: const HomeShell(),
       ),
     );
   }
