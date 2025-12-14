@@ -9,9 +9,11 @@ class AppConstants {
   static const String supportEmail = 'support@receiptdata.app';
   
   // API
+  // Using Railway domain directly until custom domain SSL is ready
+  // TODO: Change back to https://api.receiptdata.app when DNS fully propagates
   static const String apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://api.receiptdata.app',
+    defaultValue: 'https://receiptaiscanner-production.up.railway.app',
   );
   
   // Monitoring

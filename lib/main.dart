@@ -5,10 +5,15 @@ import 'package:receipt_ai_scanner/features/home/home_shell.dart';
 import 'package:receipt_ai_scanner/features/scan/scan_view_model.dart';
 import 'package:receipt_ai_scanner/core/auth/installation_id_service.dart';
 import 'package:receipt_ai_scanner/core/payments/entitlement_service.dart';
+import 'package:receipt_ai_scanner/core/locale/locale_provider.dart';
 import 'package:receipt_ai_scanner/shared/utils/constants.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize locale provider
+  final localeProvider = LocaleProvider();
+  await localeProvider.initialize();
   
   final sentryDsn = AppConstants.sentryDsn;
   
@@ -19,20 +24,23 @@ void main() async {
         options.tracesSampleRate = 0.1;
         options.environment = AppConstants.environment;
       },
-      appRunner: () => runApp(const ReceiptDataApp()),
+      appRunner: () => runApp(ReceiptDataApp(localeProvider: localeProvider)),
     );
   } else {
-    runApp(const ReceiptDataApp());
+    runApp(ReceiptDataApp(localeProvider: localeProvider));
   }
 }
 
 class ReceiptDataApp extends StatelessWidget {
-  const ReceiptDataApp({super.key});
+  final LocaleProvider localeProvider;
+  
+  const ReceiptDataApp({super.key, required this.localeProvider});
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider.value(value: localeProvider),
         ChangeNotifierProvider(
           create: (_) => ScanViewModel(
             installationIdService: InstallationIdService(),
@@ -40,18 +48,26 @@ class ReceiptDataApp extends StatelessWidget {
           ),
         ),
       ],
-      child: MaterialApp(
-        title: AppConstants.appName,
-        debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF2563EB),
-            brightness: Brightness.light,
-          ),
-          useMaterial3: true,
-          fontFamily: 'SF Pro Display',
-        ),
-        home: const HomeShell(),
+      child: Consumer<LocaleProvider>(
+        builder: (context, localeProvider, _) {
+          return MaterialApp(
+            title: AppConstants.appName,
+            debugShowCheckedModeBanner: false,
+            // Locale configuration
+            locale: localeProvider.locale,
+            supportedLocales: LocaleProvider.supportedLocales,
+            localeResolutionCallback: LocaleProvider.localeResolutionCallback,
+            theme: ThemeData(
+              colorScheme: ColorScheme.fromSeed(
+                seedColor: const Color(0xFF2563EB),
+                brightness: Brightness.light,
+              ),
+              useMaterial3: true,
+              fontFamily: 'SF Pro Display',
+            ),
+            home: const HomeShell(),
+          );
+        },
       ),
     );
   }

@@ -1,10 +1,13 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:receipt_ai_scanner/features/scan/scan_view_model.dart';
 import 'package:receipt_ai_scanner/features/result/result_view.dart';
 import 'package:receipt_ai_scanner/features/paywall/paywall_view.dart';
 import 'package:receipt_ai_scanner/core/file_picker/invoice_image_picker.dart';
+import 'package:receipt_ai_scanner/core/locale/locale_provider.dart';
 import 'package:receipt_ai_scanner/shared/widgets/quota_banner.dart';
+import 'package:receipt_ai_scanner/shared/widgets/language_selector.dart';
 import 'package:receipt_ai_scanner/shared/utils/constants.dart';
 
 class ScanView extends StatelessWidget {
@@ -32,6 +35,10 @@ class ScanView extends StatelessWidget {
               ),
             ),
             centerTitle: false,
+            actions: const [
+              LanguageSelector(),
+              SizedBox(width: 8),
+            ],
           ),
           body: Column(
             children: [
@@ -65,8 +72,8 @@ class ScanView extends StatelessWidget {
   }
 
   Widget _buildIdleState(BuildContext context, ScanViewModel viewModel) {
-    final locale = Localizations.localeOf(context).toString();
-    final isSpanish = locale.startsWith('es');
+    final localeProvider = Provider.of<LocaleProvider>(context);
+    final isSpanish = localeProvider.isSpanish(context);
 
     return Center(
       child: Padding(
@@ -110,6 +117,25 @@ class ScanView extends StatelessWidget {
     ScanViewModel viewModel,
     bool isSpanish,
   ) {
+    // On desktop web, only show file picker (camera/gallery don't make sense)
+    final isDesktopWeb = kIsWeb && MediaQuery.of(context).size.width > 600;
+    
+    if (isDesktopWeb) {
+      // Desktop web: single button
+      return SizedBox(
+        width: double.infinity,
+        child: ElevatedButton.icon(
+          onPressed: () => _pickFromFile(context, viewModel),
+          icon: const Icon(Icons.upload_file),
+          label: Text(isSpanish ? 'Seleccionar archivo' : 'Select file'),
+          style: ElevatedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+          ),
+        ),
+      );
+    }
+    
+    // Mobile: show all three options
     return Column(
       children: [
         SizedBox(

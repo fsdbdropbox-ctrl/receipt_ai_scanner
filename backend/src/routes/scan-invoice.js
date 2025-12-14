@@ -11,18 +11,26 @@ export async function scanInvoiceRoute(fastify) {
 
   fastify.post('/api/scan-invoice', async (request, reply) => {
     const installId = request.installId;
+    // Get client IP for anti-abuse tracking (incognito prevention)
+    const clientIp = request.headers['x-forwarded-for']?.split(',')[0]?.trim() || 
+                     request.headers['x-real-ip'] || 
+                     request.ip;
     let scanSlotAcquired = false;
 
     try {
       fastify.log.info('=== SCAN-INVOICE START ===');
-      fastify.log.info({ installId: installId?.substring(0, 8) + '...' }, 'stage: auth');
+      fastify.log.info({ 
+        installId: installId?.substring(0, 8) + '...',
+        ip: clientIp?.substring(0, 10) + '...',
+      }, 'stage: auth');
 
       // Get user plan
       const isPremium = await getUserPlan(installId);
       fastify.log.info({ isPremium }, 'stage: getUserPlan done');
 
       // Check quota BEFORE processing (critical for cost control)
-      const quotaCheck = await canScan(installId, isPremium);
+      // Also checks IP-based limits for free users (prevents incognito abuse)
+      const quotaCheck = await canScan(installId, isPremium, clientIp);
       fastify.log.info({ 
         allowed: quotaCheck.allowed, 
         scansLeft: quotaCheck.scansLeft,
@@ -129,9 +137,10 @@ export async function scanInvoiceRoute(fastify) {
       }
 
       // Consume quota AFTER successful processing
+      // Also tracks IP usage for free users (anti-incognito abuse)
       try {
         fastify.log.info('stage: consumeQuota start');
-        await consumeQuota(installId, isPremium);
+        await consumeQuota(installId, isPremium, clientIp);
         fastify.log.info('stage: consumeQuota done');
       } catch (quotaError) {
         // Log but don't fail - the user already got their result
