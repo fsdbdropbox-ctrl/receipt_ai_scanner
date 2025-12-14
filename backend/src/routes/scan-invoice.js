@@ -1,62 +1,106 @@
 import { processImage } from '../services/image-processor.js';
 import { scanInvoice } from '../services/gemini-service-with-cache.js';
-import { consumeQuota, getScansLeft } from '../services/quota-service.js';
+import { canScan, consumeQuota, getQuotaInfo } from '../services/quota-service.js';
 import { getUserPlan } from '../services/user-service.js';
+import { validateUpload } from '../middleware/uploadValidation.js';
+import { scanRateLimitMiddleware, releaseScanSlot } from '../middleware/rateLimit.js';
 
 export async function scanInvoiceRoute(fastify) {
+  // Add scan-specific rate limiting
+  fastify.addHook('preHandler', scanRateLimitMiddleware);
+
   fastify.post('/api/scan-invoice', async (request, reply) => {
+    const installId = request.installId;
+    let scanSlotAcquired = false;
+
     try {
       fastify.log.info('=== SCAN-INVOICE START ===');
-      
-      const installId = request.installId;
-      fastify.log.info({ installId, hasGeminiKey: !!process.env.GEMINI_API_KEY }, 'stage: auth');
-      
+      fastify.log.info({ installId: installId?.substring(0, 8) + '...' }, 'stage: auth');
+
+      // Get user plan
       const isPremium = await getUserPlan(installId);
       fastify.log.info({ isPremium }, 'stage: getUserPlan done');
 
-      // Check quota before processing
-      const scansLeft = await getScansLeft(installId, isPremium);
-      fastify.log.info({ scansLeft }, 'stage: getScansLeft done');
-      
-      if (scansLeft <= 0 && !isPremium) {
+      // Check quota BEFORE processing (critical for cost control)
+      const quotaCheck = await canScan(installId, isPremium);
+      fastify.log.info({ 
+        allowed: quotaCheck.allowed, 
+        scansLeft: quotaCheck.scansLeft,
+        period: quotaCheck.period,
+      }, 'stage: quota check done');
+
+      if (!quotaCheck.allowed) {
+        const message = isPremium
+          ? `Monthly limit reached (${quotaCheck.limit} scans). Resets in ${quotaCheck.daysUntilReset} days.`
+          : 'Daily limit reached. Upgrade for more scans.';
+        
         return reply.code(429).send({
           error: 'Quota exceeded',
-          message: 'Daily limit reached. Upgrade for unlimited scans.',
-          quota: { scansLeft: 0, isPremium: false },
+          message,
+          quota: {
+            scansLeft: 0,
+            scansUsed: quotaCheck.scansUsed,
+            limit: quotaCheck.limit,
+            period: quotaCheck.period,
+            daysUntilReset: quotaCheck.daysUntilReset,
+            isPremium,
+            limitReached: true,
+          },
         });
       }
+
+      scanSlotAcquired = true;
 
       // Parse multipart form
       let imageBuffer = null;
       let locale = 'en';
+      let declaredMimeType = null;
 
       try {
         fastify.log.info('stage: multipart parse start');
         for await (const part of request.parts()) {
           if (part.type === 'file') {
+            declaredMimeType = part.mimetype;
             const chunks = [];
             for await (const chunk of part.file) {
               chunks.push(chunk);
             }
             imageBuffer = Buffer.concat(chunks);
-            fastify.log.info({ imageSize: imageBuffer.length }, 'stage: file received');
+            fastify.log.info({ 
+              imageSize: imageBuffer.length,
+              mimeType: declaredMimeType,
+            }, 'stage: file received');
           } else if (part.type === 'field' && part.fieldname === 'locale') {
-            locale = part.value.toString('utf-8');
+            locale = String(part.value).substring(0, 10); // Sanitize locale
           }
         }
         fastify.log.info({ locale, hasImage: !!imageBuffer }, 'stage: multipart parse done');
       } catch (parseError) {
-        fastify.log.error({ err: parseError }, 'FAILED: multipart parse');
-        return reply.code(400).send({ 
-          error: 'Invalid request format', 
-          message: 'Failed to parse image data. Please ensure you are sending a valid image file.' 
+        fastify.log.error({ err: parseError.message }, 'FAILED: multipart parse');
+        return reply.code(400).send({
+          error: 'Invalid request format',
+          message: 'Failed to parse image data. Please ensure you are sending a valid image file.',
         });
       }
 
-      if (!imageBuffer || imageBuffer.length === 0) {
-        fastify.log.warn('FAILED: No image provided');
-        return reply.code(400).send({ error: 'No image provided' });
+      // Validate upload (size, MIME, magic bytes)
+      const uploadValidation = validateUpload(imageBuffer, declaredMimeType);
+      if (!uploadValidation.valid) {
+        fastify.log.warn({ 
+          error: uploadValidation.error,
+          size: uploadValidation.size,
+          detectedMime: uploadValidation.detectedMime,
+        }, 'FAILED: upload validation');
+        return reply.code(400).send({
+          error: 'Invalid file',
+          message: uploadValidation.error,
+        });
       }
+
+      fastify.log.info({ 
+        detectedMime: uploadValidation.detectedMime,
+        size: uploadValidation.size,
+      }, 'stage: upload validation passed');
 
       // Process image with Sharp
       let processedImage;
@@ -65,20 +109,8 @@ export async function scanInvoiceRoute(fastify) {
         processedImage = await processImage(imageBuffer);
         fastify.log.info({ processedSize: processedImage.length }, 'stage: sharp done');
       } catch (sharpError) {
-        fastify.log.error({ err: sharpError }, 'FAILED: sharp');
+        fastify.log.error({ err: sharpError.message }, 'FAILED: sharp');
         return reply.code(400).send({ error: 'Invalid image format' });
-      }
-      
-      // Consume quota
-      if (!isPremium) {
-        try {
-          fastify.log.info('stage: consumeQuota start');
-          await consumeQuota(installId);
-          fastify.log.info('stage: consumeQuota done');
-        } catch (quotaError) {
-          fastify.log.error({ err: quotaError }, 'FAILED: consumeQuota (continuing anyway)');
-          // Continue anyway - don't block user if quota tracking fails
-        }
       }
 
       // Scan invoice with Gemini
@@ -88,39 +120,64 @@ export async function scanInvoiceRoute(fastify) {
         result = await scanInvoice(processedImage, locale);
         fastify.log.info('stage: gemini done');
       } catch (geminiError) {
-        fastify.log.error({ err: geminiError, message: geminiError.message }, 'FAILED: gemini');
-        return reply.code(502).send({ 
-          error: 'AI processing failed', 
-          message: geminiError.message 
+        fastify.log.error({ err: geminiError.message }, 'FAILED: gemini');
+        // Don't consume quota on Gemini failure
+        return reply.code(502).send({
+          error: 'AI processing failed',
+          message: 'Unable to process image. Please try again.',
         });
       }
-      
-      // Get updated quota
-      let updatedScansLeft = scansLeft - 1;
+
+      // Consume quota AFTER successful processing
       try {
-        fastify.log.info('stage: getScansLeft update start');
-        updatedScansLeft = await getScansLeft(installId, isPremium);
-        fastify.log.info({ updatedScansLeft }, 'stage: getScansLeft update done');
+        fastify.log.info('stage: consumeQuota start');
+        await consumeQuota(installId, isPremium);
+        fastify.log.info('stage: consumeQuota done');
       } catch (quotaError) {
-        fastify.log.error({ err: quotaError }, 'FAILED: getScansLeft update (using estimate)');
+        // Log but don't fail - the user already got their result
+        fastify.log.error({ err: quotaError.message }, 'FAILED: consumeQuota (continuing anyway)');
+      }
+
+      // Get updated quota info
+      let updatedQuota;
+      try {
+        updatedQuota = await getQuotaInfo(installId, isPremium);
+      } catch (quotaError) {
+        fastify.log.error({ err: quotaError.message }, 'FAILED: getQuotaInfo update');
+        updatedQuota = {
+          scansLeft: quotaCheck.scansLeft - 1,
+          isPremium,
+        };
       }
 
       fastify.log.info('=== SCAN-INVOICE SUCCESS ===');
       return reply.send({
         data: result.data,
         quota: {
-          scansLeft: updatedScansLeft,
+          scansLeft: updatedQuota.scansLeft,
+          scansUsed: updatedQuota.scansUsed,
+          limit: updatedQuota.limit,
+          period: updatedQuota.period,
           isPremium,
         },
       });
 
     } catch (error) {
-      fastify.log.error({ err: error, message: error.message, stack: error.stack }, 'UNEXPECTED ERROR in scan-invoice');
-      return reply.code(500).send({ 
-        error: 'Internal server error', 
-        message: error.message 
+      // Sanitize error message (don't leak internal details)
+      fastify.log.error({ 
+        err: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+      }, 'UNEXPECTED ERROR in scan-invoice');
+      
+      return reply.code(500).send({
+        error: 'Internal server error',
+        message: 'An unexpected error occurred. Please try again.',
       });
+    } finally {
+      // Always release scan slot
+      if (scanSlotAcquired) {
+        await releaseScanSlot(installId);
+      }
     }
   });
 }
-

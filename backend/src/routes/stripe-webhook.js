@@ -1,8 +1,8 @@
 import Stripe from 'stripe';
 import { setUserPlan } from '../services/user-service.js';
+import { isEventProcessed, markEventProcessed } from '../middleware/webhookIdempotency.js';
 
 // STRIPE_SECRET_KEY is validated in app.js
-// STRIPE_WEBHOOK_SECRET is optional (only needed when webhook is called)
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 export async function stripeWebhookRoute(fastify) {
@@ -14,16 +14,20 @@ export async function stripeWebhookRoute(fastify) {
 
   fastify.post('/api/stripe-webhook', async (request, reply) => {
     const sig = request.headers['stripe-signature'];
-    const buf = request.rawBody; // Buffer
+    const buf = request.rawBody;
 
+    // Validate required inputs
     if (!sig || !buf) {
+      fastify.log.warn('Webhook: Missing signature or body');
       return reply.code(400).send({ error: 'Missing signature or body' });
     }
 
     if (!process.env.STRIPE_WEBHOOK_SECRET) {
-      return reply.code(500).send({ error: 'STRIPE_WEBHOOK_SECRET not configured' });
+      fastify.log.error('Webhook: STRIPE_WEBHOOK_SECRET not configured');
+      return reply.code(500).send({ error: 'Webhook not configured' });
     }
 
+    // Verify webhook signature
     let event;
     try {
       event = stripe.webhooks.constructEvent(
@@ -32,67 +36,123 @@ export async function stripeWebhookRoute(fastify) {
         process.env.STRIPE_WEBHOOK_SECRET,
       );
     } catch (err) {
-      return reply.code(400).send({ error: `Webhook signature verification failed: ${err.message}` });
+      fastify.log.error({ err: err.message }, 'Webhook signature verification failed');
+      return reply.code(400).send({ error: 'Invalid signature' });
+    }
+
+    // Log event (sanitized)
+    fastify.log.info({ 
+      eventId: event.id, 
+      type: event.type,
+    }, 'Webhook event received');
+
+    // Check idempotency - skip if already processed
+    try {
+      if (await isEventProcessed(event.id)) {
+        fastify.log.info({ eventId: event.id }, 'Webhook event already processed, skipping');
+        return reply.send({ received: true, skipped: true });
+      }
+    } catch (err) {
+      // If Redis fails, continue processing (prefer occasional duplicate over dropped events)
+      fastify.log.warn({ err: err.message }, 'Idempotency check failed, continuing');
     }
 
     try {
-      // Handle subscription events (active, trialing = premium)
-      if (event.type === 'customer.subscription.created' || event.type === 'customer.subscription.updated') {
+      let processed = false;
+
+      // Handle subscription events
+      if (event.type === 'customer.subscription.created' || 
+          event.type === 'customer.subscription.updated') {
         const subscription = event.data.object;
         const installId = subscription.metadata?.installId;
+        const status = subscription.status;
 
-        // Activate premium if subscription is active or trialing (trial period)
-        if (installId && (subscription.status === 'active' || subscription.status === 'trialing')) {
-          await setUserPlan(installId, true);
-          fastify.log.info(`Premium activated for installId: ${installId} (status: ${subscription.status})`);
-        } else if (installId && (subscription.status === 'past_due' || subscription.status === 'unpaid' || subscription.status === 'canceled')) {
-          // Deactivate premium if subscription is past_due, unpaid, or canceled
-          await setUserPlan(installId, false);
-          fastify.log.info(`Premium deactivated for installId: ${installId} (status: ${subscription.status})`);
-        }
-      }
-      // Fallback: Handle checkout completion (in case subscription metadata is missing)
-      else if (event.type === 'checkout.session.completed') {
-        const session = event.data.object;
-        const installId = session.client_reference_id;
-
-        // Only activate if we have the installId and can't rely on subscription.created
-        if (installId && session.mode === 'subscription') {
-          // Try to get subscription from session
-          if (session.subscription) {
-            try {
-              const subscription = await stripe.subscriptions.retrieve(session.subscription);
-              if (subscription.status === 'active' || subscription.status === 'trialing') {
-                await setUserPlan(installId, true);
-                fastify.log.info(`Premium activated via checkout.session.completed for installId: ${installId}`);
-              }
-            } catch (err) {
-              fastify.log.error(`Error retrieving subscription: ${err.message}`);
-              // Fallback: activate premium anyway (trial will be handled by subscription.created)
-              await setUserPlan(installId, true);
-            }
-          } else {
-            // No subscription yet, activate anyway (will be updated by subscription.created)
+        if (installId) {
+          // Active states that grant premium access
+          if (status === 'active' || status === 'trialing') {
             await setUserPlan(installId, true);
+            fastify.log.info({ 
+              installId: installId.substring(0, 8) + '...',
+              status,
+            }, 'Premium activated');
+            processed = true;
           }
+          // States that revoke premium access
+          else if (['past_due', 'unpaid', 'canceled', 'incomplete_expired'].includes(status)) {
+            await setUserPlan(installId, false);
+            fastify.log.info({ 
+              installId: installId.substring(0, 8) + '...',
+              status,
+            }, 'Premium deactivated');
+            processed = true;
+          }
+          // incomplete - waiting for payment, don't change status yet
         }
       }
-      // Handle subscription cancellation/deletion
+
+      // Handle subscription deletion
       else if (event.type === 'customer.subscription.deleted') {
         const subscription = event.data.object;
         const installId = subscription.metadata?.installId;
 
         if (installId) {
           await setUserPlan(installId, false);
-          fastify.log.info(`Premium deactivated for installId: ${installId} (subscription deleted)`);
+          fastify.log.info({ 
+            installId: installId.substring(0, 8) + '...',
+          }, 'Premium deactivated (subscription deleted)');
+          processed = true;
         }
       }
 
-      return reply.send({ received: true });
+      // Handle checkout completion as fallback
+      else if (event.type === 'checkout.session.completed') {
+        const session = event.data.object;
+        const installId = session.client_reference_id;
+
+        if (installId && session.mode === 'subscription' && session.subscription) {
+          try {
+            const subscription = await stripe.subscriptions.retrieve(session.subscription);
+            if (subscription.status === 'active' || subscription.status === 'trialing') {
+              await setUserPlan(installId, true);
+              fastify.log.info({ 
+                installId: installId.substring(0, 8) + '...',
+              }, 'Premium activated via checkout');
+              processed = true;
+            }
+          } catch (err) {
+            fastify.log.error({ err: err.message }, 'Error retrieving subscription');
+          }
+        }
+      }
+
+      // Handle payment failures
+      else if (event.type === 'invoice.payment_failed') {
+        const invoice = event.data.object;
+        // Log for monitoring, but don't immediately revoke
+        // (subscription.updated will handle status changes)
+        fastify.log.warn({ 
+          customerId: invoice.customer,
+          attemptCount: invoice.attempt_count,
+        }, 'Payment failed');
+      }
+
+      // Mark event as processed
+      try {
+        await markEventProcessed(event.id, { 
+          type: event.type, 
+          processed,
+        });
+      } catch (err) {
+        fastify.log.warn({ err: err.message }, 'Failed to mark event as processed');
+      }
+
+      return reply.send({ received: true, processed });
+
     } catch (error) {
-      fastify.log.error(`Webhook processing error: ${error.message}`);
-      return reply.code(500).send({ error: 'Webhook processing failed' });
+      fastify.log.error({ err: error.message }, 'Webhook processing error');
+      // Return 200 to prevent Stripe retries for processing errors
+      // (we've received and logged the event)
+      return reply.send({ received: true, error: 'Processing error logged' });
     }
   });
 }
-
