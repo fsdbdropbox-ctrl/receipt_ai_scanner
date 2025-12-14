@@ -42,6 +42,23 @@ dev_dependencies:
   flutter_lints: ^3.0.0
   mockito: ^5.4.4
   build_runner: ^2.4.8
+  flutter_launcher_icons: ^0.13.1
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  remove_alpha_ios: true
+  image_path: "assets/app_icon.png"
+  min_sdk_android: 21
+  web:
+    generate: true
+    image_path: "assets/app_icon.png"
+    background_color: "#2563EB"
+    theme_color: "#2563EB"
+  windows:
+    generate: true
+    image_path: "assets/app_icon.png"
+    icon_size: 48
 
 flutter:
   uses-material-design: true

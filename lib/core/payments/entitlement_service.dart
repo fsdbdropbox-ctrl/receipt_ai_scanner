@@ -1,8 +1,9 @@
-import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:receipt_ai_scanner/core/payments/entitlement_service_stub.dart'
-    if (dart.library.io) 'package:receipt_ai_scanner/core/payments/entitlement_service_io.dart'
-    if (dart.library.html) 'package:receipt_ai_scanner/core/payments/entitlement_service_web.dart';
+import 'package:receipt_ai_scanner/core/payments/entitlement_service_web.dart';
+
+// Conditional imports - only import IO service on mobile platforms
+import 'entitlement_service_stub.dart'
+    if (dart.library.io) 'entitlement_service_io.dart';
 
 abstract class EntitlementService {
   Future<bool> isPremium();
@@ -11,10 +12,10 @@ abstract class EntitlementService {
   factory EntitlementService() {
     if (kIsWeb) {
       return WebEntitlementService();
-    } else if (Platform.isIOS || Platform.isAndroid) {
-      return IoEntitlementService();
     }
-    return StubEntitlementService();
+    // For mobile platforms (iOS/Android), use IO service
+    // On web, this will use StubEntitlementService (which returns false)
+    return IoEntitlementService();
   }
 }
 
