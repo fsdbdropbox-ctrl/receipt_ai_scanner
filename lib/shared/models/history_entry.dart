@@ -83,6 +83,23 @@ class HistoryEntry {
     return '$dateStr,$vendorStr,$totalStr,$taxStr,$currencyStr,$categoryStr';
   }
 
+  /// Convert to TSV row (for Excel paste)
+  /// Columns: date, vendor, total, tax, currency, category, confidence
+  String toTsvRow() {
+    final dateStr = invoiceDate?.toIso8601String().split('T').first ?? '';
+    final vendorStr = vendor?.replaceAll('\t', ' ') ?? '';
+    final totalStr = total?.toStringAsFixed(2) ?? '';
+    final taxStr = tax?.toStringAsFixed(2) ?? '';
+    final currencyStr = currency ?? '';
+    final categoryStr = category.name;
+    final confidenceStr = confidence.toStringAsFixed(2);
+
+    return '$dateStr\t$vendorStr\t$totalStr\t$taxStr\t$currencyStr\t$categoryStr\t$confidenceStr';
+  }
+
+  /// TSV header (English, for data consistency)
+  static String get tsvHeader => 'date\tvendor\ttotal\ttax\tcurrency\tcategory\tconfidence';
+
   /// Get formatted display amount
   String getFormattedAmount(String locale) {
     if (total == null) return '-';

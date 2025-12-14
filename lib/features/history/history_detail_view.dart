@@ -40,6 +40,9 @@ class HistoryDetailView extends StatelessWidget {
             icon: const Icon(Icons.more_vert, color: Color(0xFF1E3A8A)),
             onSelected: (value) {
               switch (value) {
+                case 'copy_excel':
+                  _copyForExcel(context, locale);
+                  break;
                 case 'copy_text':
                   _copyTextToClipboard(context, locale);
                   break;
@@ -59,6 +62,27 @@ class HistoryDetailView extends StatelessWidget {
             },
             itemBuilder: (context) => [
               PopupMenuItem(
+                value: 'copy_excel',
+                child: Row(
+                  children: [
+                    const Icon(Icons.table_view, size: 20, color: Color(0xFF1E3A8A)),
+                    const SizedBox(width: 12),
+                    Text(isSpanish ? 'Copiar para Excel' : 'Copy for Excel'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'export_csv',
+                child: Row(
+                  children: [
+                    const Icon(Icons.download, size: 20, color: Color(0xFF1E3A8A)),
+                    const SizedBox(width: 12),
+                    Text(isSpanish ? 'Exportar CSV' : 'Export CSV'),
+                  ],
+                ),
+              ),
+              const PopupMenuDivider(),
+              PopupMenuItem(
                 value: 'copy_text',
                 child: Row(
                   children: [
@@ -75,16 +99,6 @@ class HistoryDetailView extends StatelessWidget {
                     const Icon(Icons.code, size: 20, color: Color(0xFF1E3A8A)),
                     const SizedBox(width: 12),
                     Text(isSpanish ? 'Copiar JSON' : 'Copy JSON'),
-                  ],
-                ),
-              ),
-              PopupMenuItem(
-                value: 'export_csv',
-                child: Row(
-                  children: [
-                    const Icon(Icons.table_chart, size: 20, color: Color(0xFF1E3A8A)),
-                    const SizedBox(width: 12),
-                    Text(isSpanish ? 'Exportar CSV' : 'Export CSV'),
                   ],
                 ),
               ),
@@ -330,6 +344,25 @@ class HistoryDetailView extends StatelessWidget {
     return '${date.day} ${months[date.month - 1]} ${date.year}, ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
   }
 
+  /// Copy TSV format for Excel/Sheets paste (header + 1 row)
+  void _copyForExcel(BuildContext context, String locale) {
+    final isSpanish = locale.startsWith('es');
+    final tsv = HistoryService.instance.exportToTsv([entry]);
+    
+    Clipboard.setData(ClipboardData(text: tsv));
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          isSpanish 
+              ? 'Copiado. Pega en Excel o Google Sheets.' 
+              : 'Copied. Paste in Excel or Google Sheets.',
+        ),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
   void _copyTextToClipboard(BuildContext context, String locale) {
     final isSpanish = locale.startsWith('es');
     final buffer = StringBuffer();
@@ -504,4 +537,5 @@ class HistoryDetailView extends StatelessWidget {
     }
   }
 }
+
 

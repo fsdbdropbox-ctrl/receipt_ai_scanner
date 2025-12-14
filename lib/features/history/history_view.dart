@@ -6,6 +6,7 @@ import 'package:receipt_ai_scanner/features/history/history_detail_view.dart';
 import 'package:receipt_ai_scanner/shared/models/history_entry.dart';
 import 'package:receipt_ai_scanner/shared/models/invoice_data.dart';
 import 'package:receipt_ai_scanner/core/utils/csv_helper.dart';
+import 'package:receipt_ai_scanner/core/history/history_service.dart';
 
 class HistoryView extends StatefulWidget {
   const HistoryView({super.key});
@@ -475,10 +476,22 @@ class _HistoryViewState extends State<HistoryView> {
                     ),
               ),
               const SizedBox(height: 24),
+              // Primary option: Copy for Excel (most common use case)
               _buildExportOption(
                 context,
-                icon: Icons.table_chart,
+                icon: Icons.table_view,
+                label: isSpanish ? 'Copiar para Excel' : 'Copy for Excel',
+                subtitle: isSpanish 
+                    ? 'Pega directamente en tu hoja de cálculo' 
+                    : 'Paste directly into your spreadsheet',
+                onTap: () => _copyForExcel(context, viewModel, isSpanish),
+              ),
+              const SizedBox(height: 12),
+              _buildExportOption(
+                context,
+                icon: Icons.download,
                 label: isSpanish ? 'Exportar CSV' : 'Export CSV',
+                subtitle: isSpanish ? 'Descargar archivo' : 'Download file',
                 onTap: () => _exportCsv(context, viewModel, isSpanish),
               ),
               const SizedBox(height: 12),
@@ -486,6 +499,7 @@ class _HistoryViewState extends State<HistoryView> {
                 context,
                 icon: Icons.code,
                 label: isSpanish ? 'Copiar JSON' : 'Copy JSON',
+                subtitle: isSpanish ? 'Para desarrolladores' : 'For developers',
                 onTap: () => _copyJson(context, viewModel, isSpanish),
               ),
             ],
@@ -499,6 +513,7 @@ class _HistoryViewState extends State<HistoryView> {
     BuildContext context, {
     required IconData icon,
     required String label,
+    String? subtitle,
     required VoidCallback onTap,
   }) {
     return InkWell(
@@ -514,15 +529,31 @@ class _HistoryViewState extends State<HistoryView> {
           children: [
             Icon(icon, color: const Color(0xFF2563EB)),
             const SizedBox(width: 16),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: Color(0xFF1E3A8A),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF1E3A8A),
+                    ),
+                  ),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
-            const Spacer(),
             const Icon(Icons.chevron_right, color: Colors.grey),
           ],
         ),
@@ -547,6 +578,38 @@ class _HistoryViewState extends State<HistoryView> {
         ),
       );
     }
+
+    viewModel.exitSelectionMode();
+  }
+
+  /// Copy selected entries as TSV for Excel/Sheets paste
+  void _copyForExcel(
+    BuildContext context,
+    HistoryViewModel viewModel,
+    bool isSpanish,
+  ) {
+    Navigator.pop(context);
+    
+    // Get selected entries
+    final selectedEntries = viewModel.entries
+        .where((e) => viewModel.selectedIds.contains(e.id))
+        .toList();
+    
+    // Export to TSV
+    final tsv = HistoryService.instance.exportToTsv(selectedEntries);
+    Clipboard.setData(ClipboardData(text: tsv));
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          isSpanish 
+              ? 'Copiado. Pega en Excel o Google Sheets.' 
+              : 'Copied. Paste in Excel or Google Sheets.',
+        ),
+        backgroundColor: Colors.green,
+        duration: const Duration(seconds: 3),
+      ),
+    );
 
     viewModel.exitSelectionMode();
   }

@@ -129,6 +129,19 @@ class HistoryService {
     return buffer.toString();
   }
 
+  /// Export entries to TSV string (for Excel/Sheets paste)
+  /// Always includes header for context
+  String exportToTsv(List<HistoryEntry> entries) {
+    final buffer = StringBuffer();
+    buffer.writeln(HistoryEntry.tsvHeader);
+    
+    for (final entry in entries) {
+      buffer.writeln(entry.toTsvRow());
+    }
+    
+    return buffer.toString().trimRight(); // Remove trailing newline
+  }
+
   /// Export entries to JSON string
   String exportToJson(List<HistoryEntry> entries) {
     final jsonList = entries.map((e) => e.toJson()).toList();
