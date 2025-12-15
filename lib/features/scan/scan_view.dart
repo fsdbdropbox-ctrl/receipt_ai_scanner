@@ -9,6 +9,7 @@ import 'package:receipt_ai_scanner/core/locale/locale_provider.dart';
 import 'package:receipt_ai_scanner/core/quota/quota_provider.dart';
 import 'package:receipt_ai_scanner/shared/widgets/quota_banner.dart';
 import 'package:receipt_ai_scanner/shared/widgets/language_selector.dart';
+import 'package:receipt_ai_scanner/shared/widgets/pro_button.dart';
 import 'package:receipt_ai_scanner/shared/utils/constants.dart';
 
 class ScanView extends StatelessWidget {
@@ -36,9 +37,10 @@ class ScanView extends StatelessWidget {
               ),
             ),
             centerTitle: false,
-            actions: const [
-              LanguageSelector(),
-              SizedBox(width: 8),
+            actions: [
+              ProButton(onTap: () => _navigateToPaywall(context)),
+              const LanguageSelector(),
+              const SizedBox(width: 8),
             ],
           ),
           body: Column(

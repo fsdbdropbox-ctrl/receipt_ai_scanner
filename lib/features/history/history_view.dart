@@ -3,8 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:receipt_ai_scanner/features/history/history_view_model.dart';
 import 'package:receipt_ai_scanner/features/history/history_detail_view.dart';
+import 'package:receipt_ai_scanner/features/paywall/paywall_view.dart';
 import 'package:receipt_ai_scanner/shared/models/history_entry.dart';
 import 'package:receipt_ai_scanner/shared/models/invoice_data.dart';
+import 'package:receipt_ai_scanner/shared/widgets/pro_button.dart';
 import 'package:receipt_ai_scanner/core/utils/csv_helper.dart';
 import 'package:receipt_ai_scanner/core/history/history_service.dart';
 
@@ -31,6 +33,12 @@ class _HistoryViewState extends State<HistoryView> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _navigateToPaywall(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const PaywallView()),
+    );
   }
 
   @override
@@ -135,6 +143,7 @@ class _HistoryViewState extends State<HistoryView> {
         ),
       ),
       actions: [
+        ProButton(onTap: () => _navigateToPaywall(context)),
         IconButton(
           icon: const Icon(Icons.search, color: Color(0xFF1E3A8A)),
           onPressed: () => setState(() => _showSearch = true),
