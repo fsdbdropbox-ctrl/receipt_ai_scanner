@@ -195,7 +195,7 @@ fastify.get('/', async (request, reply) => {
 
 // Health check (public)
 fastify.get('/health', async (request, reply) => {
-  return { 
+  return {
     status: 'ok',
     timestamp: new Date().toISOString(),
     version: process.env.npm_package_version || '1.0.0',

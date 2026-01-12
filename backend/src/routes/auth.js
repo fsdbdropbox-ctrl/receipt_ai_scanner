@@ -6,7 +6,18 @@ import { verifyOAuthToken } from '../services/oauth-verification.js';
  * POST /api/auth/oauth - Verify OAuth token and create/update user
  */
 export async function authRoute(fastify) {
+  // Main route with /api/ prefix
   fastify.post('/api/auth/oauth', async (request, reply) => {
+    return handleOAuth(request, reply, fastify);
+  });
+  
+  // Alternative route without /api/ prefix (for Cloudflare/proxy compatibility)
+  fastify.post('/auth/oauth', async (request, reply) => {
+    return handleOAuth(request, reply, fastify);
+  });
+}
+
+async function handleOAuth(request, reply, fastify) {
     try {
       const { provider, token, email, oauthId } = request.body;
 
@@ -118,5 +129,4 @@ export async function authRoute(fastify) {
         message: isDevelopment ? error.message : 'An error occurred during authentication. Please try again.',
       });
     }
-  });
 }
