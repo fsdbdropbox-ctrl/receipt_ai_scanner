@@ -12,10 +12,10 @@ class AppConstants {
   // IMPORTANT: Update this with your Railway backend URL
   // Get it from: Railway → Your Service → Settings → Domains
   // For local development with backend on your machine: use 'http://10.0.2.2:8080'
-  // For Railway production: use your Railway URL (e.g., 'https://receiptdata-production.up.railway.app')
+  // For Railway production: use your Railway URL
   static const String apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://receiptdata-production.up.railway.app', // ← UPDATE THIS with your Railway URL
+    defaultValue: 'https://receiptaiscanner-production.up.railway.app',
   );
   
   // Monitoring
