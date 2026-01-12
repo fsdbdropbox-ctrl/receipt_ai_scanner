@@ -2,12 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
+import 'package:receipt_ai_scanner/features/auth/auth_view.dart';
 import 'package:receipt_ai_scanner/features/home/home_shell.dart';
+import 'package:receipt_ai_scanner/features/onboarding/onboarding_view.dart';
 import 'package:receipt_ai_scanner/features/scan/scan_view_model.dart';
 import 'package:receipt_ai_scanner/core/auth/installation_id_service.dart';
+import 'package:receipt_ai_scanner/core/auth/auth_service.dart';
+import 'package:receipt_ai_scanner/core/fiscal/fiscal_profile_service.dart';
 import 'package:receipt_ai_scanner/core/payments/entitlement_service.dart';
 import 'package:receipt_ai_scanner/core/locale/locale_provider.dart';
 import 'package:receipt_ai_scanner/core/quota/quota_provider.dart';
+import 'package:receipt_ai_scanner/core/app_router.dart';
 import 'package:receipt_ai_scanner/shared/utils/constants.dart';
 
 void main() async {
@@ -17,7 +22,7 @@ void main() async {
   final localeProvider = LocaleProvider();
   await localeProvider.initialize();
   
-  final sentryDsn = AppConstants.sentryDsn;
+  const sentryDsn = AppConstants.sentryDsn;
   
   if (sentryDsn.isNotEmpty) {
     await SentryFlutter.init(
@@ -76,7 +81,17 @@ class ReceiptDataApp extends StatelessWidget {
               useMaterial3: true,
               fontFamily: 'SF Pro Display',
             ),
-            home: const HomeShell(),
+            home: FutureBuilder<Widget>(
+              future: AppRouter.getInitialRoute(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Scaffold(
+                    body: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                return snapshot.data ?? const AuthView();
+              },
+            ),
           );
         },
       ),

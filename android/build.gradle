@@ -11,6 +11,10 @@ subprojects {
 }
 subprojects {
     project.evaluationDependsOn(":app")
+    // Set default compileSdkVersion for plugins
+    project.ext.flutter = [
+        compileSdkVersion: 35
+    ]
 }
 
 tasks.register("clean", Delete) {

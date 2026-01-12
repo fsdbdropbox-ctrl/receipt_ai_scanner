@@ -23,7 +23,7 @@ class RobustJsonParser {
     // Try to find JSON object boundaries
     final startIndex = cleaned.indexOf('{');
     if (startIndex == -1) {
-      throw FormatException('No JSON object found');
+      throw const FormatException('No JSON object found');
     }
 
     int braceCount = 0;
@@ -42,7 +42,7 @@ class RobustJsonParser {
     }
 
     if (braceCount != 0) {
-      throw FormatException('Unbalanced braces in JSON');
+      throw const FormatException('Unbalanced braces in JSON');
     }
 
     final jsonStr = cleaned.substring(startIndex, endIndex);

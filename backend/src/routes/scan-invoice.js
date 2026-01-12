@@ -1,5 +1,5 @@
 import { processImage } from '../services/image-processor.js';
-import { scanInvoice } from '../services/gemini-service-with-cache.js';
+import { scanInvoice } from '../services/gemini-service.js';
 import { canScan, consumeQuota, getQuotaInfo } from '../services/quota-service.js';
 import { getUserPlan } from '../services/user-service.js';
 import { validateUpload } from '../middleware/uploadValidation.js';

@@ -1,76 +1,142 @@
-# Receipt AI Scanner
+# AuditReady 1.0
 
-AI-powered receipt and invoice scanner with automatic data extraction.
+**Plataforma SaaS de pre-contabilidad y organización fiscal**
 
-## Features
+AuditReady es una aplicación móvil que digitaliza, valida y organiza documentos fiscales con IA contextual, garantizando la integridad documental antes de que lleguen al contable.
 
-- 📸 Scan receipts and invoices from camera, gallery, or file
-- 🤖 AI-powered data extraction (total, vendor, date, tax, category)
-- 🌍 Multilingual support (EN, ES, DE, FR, IT)
-- 💰 Premium subscription for unlimited scans
-- 🔒 Privacy-focused (no data retention)
+---
 
-## Project Structure
+## 🚀 Inicio Rápido
 
-```
-receipt_ai_scanner/
-├── lib/                    # Flutter app
-│   ├── core/              # Core services and utilities
-│   ├── features/          # Feature screens
-│   └── shared/            # Shared models and widgets
-└── backend/               # Node.js/Fastify API
-    └── src/
-        ├── config/        # Configuration
-        ├── middleware/    # Auth, rate limiting
-        ├── routes/        # API routes
-        ├── services/      # Business logic
-        └── utils/         # Utilities
-```
+### Requisitos Previos
 
-## Setup
+- Flutter SDK 3.0+
+- Node.js 18+
+- PostgreSQL (Supabase)
+- Redis (Upstash)
+- Cuentas de: Google Cloud, Apple Developer (para OAuth)
 
-### Flutter App
+### Instalación
 
-1. Install dependencies:
 ```bash
+# Clonar repositorio
+git clone <repo-url>
 cd receipt_ai_scanner
+
+# Frontend (Flutter)
 flutter pub get
-```
 
-2. Configure API URL (optional):
-```bash
-flutter run --dart-define=API_BASE_URL=https://receiptaiscanner-production.up.railway.app
-```
-
-### Backend
-
-1. Install dependencies:
-```bash
+# Backend (Node.js)
 cd backend
 npm install
 ```
 
-2. Configure environment variables:
-```bash
-cp .env.example .env
-# Edit .env with your keys
+### Configuración
+
+Ver [docs/SETUP.md](docs/SETUP.md) para configuración completa.
+
+---
+
+## 📱 Características Principales
+
+- **🔐 Autenticación OAuth**: Google y Apple Sign-In
+- **📋 Onboarding Fiscal**: Configuración de contexto fiscal (país, NIF, régimen)
+- **📸 Escaneo Inteligente**: IA contextual que valida documentos según reglas fiscales
+- **✅ Validación Automática**: Detección de errores formales y semánticos
+- **🔧 Auto-corrección**: Corrección automática de errores comunes (ej: NIF faltante)
+- **📊 Dashboard**: Métricas de integridad documental y salud fiscal
+- **👥 Colaboración**: Invitación de contables mediante magic links
+
+---
+
+## 🏗️ Arquitectura
+
+```
+receipt_ai_scanner/
+├── lib/                    # Flutter app
+│   ├── core/              # Servicios core (auth, fiscal, dashboard)
+│   ├── features/          # Pantallas (auth, onboarding, dashboard, scan, review)
+│   └── shared/            # Modelos y widgets compartidos
+├── backend/               # Node.js/Fastify API
+│   └── src/
+│       ├── config/        # Configuración (Gemini, Redis, Sentry)
+│       ├── db/            # PostgreSQL (schema, pool)
+│       ├── middleware/    # Auth, rate limiting, validación
+│       ├── routes/        # API endpoints
+│       ├── services/      # Lógica de negocio (OAuth, fiscal, Gemini)
+│       └── utils/         # Utilidades
+└── docs/                  # Documentación
 ```
 
-3. Start server:
+---
+
+## 🔧 Configuración de Producción
+
+### Variables de Entorno (Railway)
+
+**Obligatorias:**
+- `DATABASE_URL` - PostgreSQL connection string (Supabase)
+- `JWT_SECRET` - Secret para tokens JWT (mínimo 32 caracteres)
+- `GEMINI_API_KEY` - Google Gemini API key
+- `REDIS_URL` - Redis connection URL (Upstash)
+- `STRIPE_SECRET_KEY` - Stripe secret key
+
+**Recomendadas:**
+- `GOOGLE_CLIENT_ID` - Para verificación OAuth de Google
+- `STRIPE_WEBHOOK_SECRET` - Para webhooks de Stripe
+- `ALLOWED_ORIGINS` - Orígenes permitidos para CORS
+- `SENTRY_DSN` - Para monitoreo de errores
+
+### Base de Datos (Supabase)
+
+1. Crear proyecto en Supabase
+2. Ejecutar `backend/src/db/schema.sql` en SQL Editor
+3. Verificar que se crearon 5 tablas:
+   - `users`
+   - `fiscal_profiles`
+   - `documents`
+   - `validation_flags`
+   - `collaborator_access`
+
+### OAuth (Google Cloud Console)
+
+1. Crear OAuth 2.0 Client ID (Android)
+2. Añadir Package Name: `com.receiptdata.app`
+3. Añadir SHA-1 fingerprint (debug y release)
+4. Copiar Client ID a Railway como `GOOGLE_CLIENT_ID`
+
+Ver [docs/SETUP.md](docs/SETUP.md) para detalles completos.
+
+---
+
+## 📚 Documentación
+
+- **[SETUP.md](docs/SETUP.md)** - Guía completa de configuración
+- **[ARCHITECTURE.md](docs/ARCHITECTURE.md)** - Arquitectura del sistema
+- **[SECURITY.md](docs/SECURITY.md)** - Auditoría de seguridad
+- **[DEPLOYMENT.md](docs/DEPLOYMENT.md)** - Guía de despliegue
+
+---
+
+## 🧪 Testing
+
 ```bash
-npm start
+# Backend tests
+cd backend
+npm test
+
+# Flutter tests
+flutter test
 ```
 
-## Environment Variables
+---
 
-- `GEMINI_API_KEY`: Google Gemini API key
-- `REDIS_URL`: Redis connection URL (Upstash)
-- `STRIPE_SECRET_KEY`: Stripe secret key
-- `STRIPE_WEBHOOK_SECRET`: Stripe webhook secret
-- `ALLOWED_ORIGINS`: Comma-separated list of allowed CORS origins
-- `DAILY_FREE_LIMIT`: Daily free scan limit (default: 5)
-
-## License
+## 📄 Licencia
 
 Private - All rights reserved
 
+---
+
+## 🆘 Soporte
+
+Para problemas o preguntas, contacta: support@receiptdata.app

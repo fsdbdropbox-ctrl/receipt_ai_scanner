@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AuditReady - iOS/Android Spec (v33 Fixed & Restored)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        ios: {
+                            blue: '#007AFF', green: '#34C759', indigo: '#5856D6', orange: '#FF9500',
+                            pink: '#FF2D55', purple: '#AF52DE', red: '#FF3B30', teal: '#5AC8FA',
+                            yellow: '#FFCC00', gray: '#8E8E93'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', 'sans-serif'],
+                    },
+                    boxShadow: {
+                        'ios': '0 2px 10px rgba(0,0,0,0.05)',
+                        'ios-lg': '0 10px 30px rgba(0,0,0,0.1)',
+                    },
+                    animation: { 'ripple': 'ripple 0.6s linear' },
+                    keyframes: {
+                        ripple: {
+                            '0%': { transform: 'scale(0)', opacity: '0.4' },
+                            '100%': { transform: 'scale(4)', opacity: '0' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Base Setup */
+        :root { --bg-primary: #F2F2F7; }
+        .dark { --bg-primary: #000000; }
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; -webkit-font-smoothing: antialiased; background-color: #ffffff; }
+
+        /* Documentation Styles */
+        .doc-section { display: none; }
+        .doc-section.active { display: block; animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+        .nav-item { transition: all 0.2s ease; border-radius: 12px; }
+        .nav-item.active { background-color: #007AFF; color: white; font-weight: 600; }
+        .nav-item.active i { color: white; }
+        .nav-item:not(.active):hover { background-color: rgba(0,0,0,0.05); }
+
+        /* Simulator Frame */
+        .mobile-frame {
+            border: 8px solid #2d2d2d; border-radius: 56px; overflow: hidden; position: relative;
+            background: black; box-shadow: 0 0 0 2px #1a1a1a, 0 25px 60px -15px rgba(0, 0, 0, 0.4);
+            transition: all 0.3s ease;
+        }
+        
+        /* Status Bar */
+        .status-bar { top: 0; transition: top 0.3s ease, padding 0.3s ease; }
+        
+        /* Android Mode Tweaks */
+        .android-mode .dynamic-island { display: none; }
+        .android-mode .punch-hole { display: block; }
+        .android-mode #sim-container { padding-top: 4px; } 
+        .android-mode .status-bar { padding-left: 20px; padding-right: 20px; top: 14px; }
+        
+        /* Dynamic Island (iOS) */
+        .dynamic-island {
+            position: absolute; top: 11px; left: 50%; transform: translateX(-50%);
+            width: 126px; height: 37px; background: black; border-radius: 20px; z-index: 50;
+            transition: all 0.3s ease;
+        }
+        /* Punch Hole (Android) */
+        .punch-hole {
+            position: absolute; top: 15px; left: 24px;
+            width: 12px; height: 12px; background: black; border-radius: 50%; z-index: 50;
+            display: none;
+        }
+
+        /* Screen Management */
+        .screen {
+            position: absolute; inset: 0; display: flex; flex-direction: column;
+            background-color: var(--bg-primary);
+            transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+            opacity: 0; pointer-events: none; transform: scale(0.98);
+        }
+        .screen.active { opacity: 1; pointer-events: auto; transform: scale(1); z-index: 10; }
+
+        /* Global Overlays */
+        .global-overlay {
+            position: absolute; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
+            z-index: 100; opacity: 0; pointer-events: none; transition: opacity 0.3s;
+            display: flex; flex-direction: column; justify-content: flex-end;
+        }
+        .global-overlay.active { opacity: 1; pointer-events: auto; }
+        .sheet-content { transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); }
+        .global-overlay.active .sheet-content { transform: translateY(0); }
+
+        /* Toast Notification */
+        .toast-notification {
+            position: absolute; top: 60px; left: 50%; transform: translateX(-50%) translateY(-100%);
+            background: rgba(0,0,0,0.9); backdrop-filter: blur(12px); color: white;
+            padding: 12px 24px; border-radius: 999px; border: 0.5px solid rgba(255,255,255,0.2);
+            font-size: 13px; font-weight: 600; letter-spacing: -0.01em;
+            opacity: 0; transition: all 0.5s cubic-bezier(0.19, 1, 0.22, 1); z-index: 60;
+            display: flex; align-items: center; gap: 10px; 
+            box-shadow: 0 8px 30px rgba(0,0,0,0.25), 0 4px 10px rgba(0,0,0,0.1);
+            cursor: pointer; appearance: none;
+        }
+        .toast-notification:hover { background: rgba(0,0,0,1); }
+        .toast-notification.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+        /* Ripple & Interact */
+        .ripple-container { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 9999; }
+        .ripple { position: absolute; border-radius: 50%; background: rgba(255, 255, 255, 0.4); transform: scale(0); animation: ripple 0.5s linear; pointer-events: none; }
+        .tap-target { cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent; }
+        .tap-target:active { transform: scale(0.97); transition: transform 0.1s; }
+        button:focus-visible { outline: 2px solid #007AFF; outline-offset: 2px; }
+        .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border-width: 0; }
+        .focus\:not-sr-only:focus { position: static; width: auto; height: auto; padding: 0; margin: 0; overflow: visible; clip: auto; white-space: normal; }
+    </style>
+</head>
+<body class="h-screen flex flex-col md:flex-row overflow-hidden text-gray-900 bg-gray-50">
+    <!-- A11y Skip Link -->
+    <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:bg-white focus:text-black focus:px-4 focus:py-3 focus:rounded focus:shadow-lg focus:font-bold">
+        Saltar al contenido principal
+    </a>
+
+    <!-- LEFT PANEL: Specs -->
+    <div class="w-full md:w-1/2 lg:w-3/5 flex flex-col h-full border-r border-gray-200 bg-white z-20 shadow-lg">
+        <header class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-white sticky top-0 z-30">
+            <div>
+                <h1 class="text-xl font-bold tracking-tight text-gray-900 flex items-center gap-2">
+                    <span class="w-6 h-6 bg-black text-white rounded-md flex items-center justify-center text-xs"><i class="fa-brands fa-apple"></i></span>
+                    AuditReady <span class="font-normal text-gray-500">Spec v33.0</span>
+                </h1>
+                <p class="text-xs text-gray-600 mt-0.5 font-medium ml-8">Restored Content • Fixed Layout</p>
+            </div>
+            <div class="flex gap-2">
+                <button type="button" id="platform-toggle" data-action="toggle-platform" class="h-10 px-4 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors text-xs font-bold text-gray-700 tap-target" aria-label="Cambiar plataforma">
+                    Android
+                </button>
+                <button type="button" id="theme-toggle" data-action="toggle-theme" class="w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors text-gray-700 tap-target" aria-label="Cambiar tema">
+                    <i class="fa-solid fa-moon"></i>
+                </button>
+            </div>
+        </header>
+
+        <div class="flex flex-1 overflow-hidden">
+            <nav class="w-64 border-r border-gray-100 bg-gray-50/50 p-4 overflow-y-auto hidden md:block" aria-label="Navegación principal">
+                <div class="mb-6">
+                    <p class="text-[11px] font-bold text-gray-600 uppercase tracking-wider mb-3 px-2">Setup</p>
+                    <button type="button" id="nav-btn-landing" data-action="nav" data-target="landing" aria-current="page" class="nav-item active w-full text-left px-3 py-3 mb-1 flex items-center gap-3 text-sm font-medium tap-target">
+                        <i class="fa-solid fa-shield-halved w-5 text-center text-gray-500"></i> Acceso Seguro
+                    </button>
+                </div>
+                <div class="mb-6">
+                    <p class="text-[11px] font-bold text-gray-600 uppercase tracking-wider mb-3 px-2">Ingesta Multicanal</p>
+                    <button type="button" id="nav-capture-menu" data-action="overlay" data-target="capture" class="nav-item w-full text-left px-3 py-3 mb-1 flex items-center gap-3 text-sm font-medium text-gray-700 tap-target bg-blue-50 text-ios-blue border border-blue-100">
+                        <i class="fa-solid fa-plus w-5 text-center text-ios-blue"></i> Menú Captura
+                    </button>
+                    <button type="button" id="nav-btn-camera" data-action="nav" data-target="camera" class="nav-item w-full text-left px-3 py-3 mb-1 flex items-center gap-3 text-sm font-medium text-gray-700 tap-target pl-8">
+                        <i class="fa-solid fa-camera w-5 text-center text-gray-500"></i> Cámara (Doc)
+                    </button>
+                    <button type="button" id="nav-btn-photo-picker" data-action="nav" data-target="photo-picker" class="nav-item w-full text-left px-3 py-3 mb-1 flex items-center gap-3 text-sm font-medium text-gray-700 tap-target pl-8">
+                        <i class="fa-regular fa-images w-5 text-center text-gray-500"></i> Fototeca (Lote)
+                    </button>
+                    <button type="button" id="nav-btn-pdf-options" data-action="nav" data-target="pdf-options" class="nav-item w-full text-left px-3 py-3 mb-1 flex items-center gap-3 text-sm font-medium text-gray-700 tap-target pl-8">
+                        <i class="fa-regular fa-file-pdf w-5 text-center text-gray-500"></i> Opciones PDF
+                    </button>
+                    <button type="button" id="nav-btn-batch-summary" data-action="nav" data-target="batch-summary" class="nav-item w-full text-left px-3 py-3 mb-1 flex items-center gap-3 text-sm font-medium text-gray-700 tap-target pl-8">
+                        <i class="fa-solid fa-list-check w-5 text-center text-gray-500"></i> Resumen Lote
+                    </button>
+                </div>
+                <div class="mb-6">
+                    <p class="text-[11px] font-bold text-gray-600 uppercase tracking-wider mb-3 px-2">Operativa</p>
+                    <button type="button" id="nav-btn-dashboard" data-action="nav" data-target="dashboard" class="nav-item w-full text-left px-3 py-3 mb-1 flex items-center gap-3 text-sm font-medium text-gray-700 tap-target">
+                        <i class="fa-solid fa-table-columns w-5 text-center text-gray-500"></i> Dashboard
+                    </button>
+                    <button type="button" id="nav-btn-review" data-action="nav" data-target="review" class="nav-item w-full text-left px-3 py-3 mb-1 flex items-center gap-3 text-sm font-medium text-gray-700 tap-target">
+                        <i class="fa-solid fa-clipboard-check w-5 text-center text-gray-500"></i> Auditoría (Full)
+                    </button>
+                    <button type="button" id="nav-btn-archive" data-action="nav" data-target="archive" class="nav-item w-full text-left px-3 py-3 mb-1 flex items-center gap-3 text-sm font-medium text-gray-700 tap-target">
+                        <i class="fa-solid fa-box-archive w-5 text-center text-gray-500"></i> Archivo Fiscal
+                    </button>
+                    <button type="button" id="nav-btn-export" data-action="nav" data-target="export" class="nav-item w-full text-left px-3 py-3 mb-1 flex items-center gap-3 text-sm font-medium text-gray-700 tap-target">
+                        <i class="fa-solid fa-file-export w-5 text-center text-gray-500"></i> Exportación
+                    </button>
+                </div>
+            </nav>
+
+            <main id="main-content" class="flex-1 p-8 overflow-y-auto bg-white">
+                <!-- 1. LANDING -->
+                <section id="doc-landing" class="doc-section active max-w-2xl">
+                    <span class="inline-block px-2 py-1 bg-blue-50 text-ios-blue text-[10px] font-bold uppercase tracking-wide rounded mb-3">Estrategia</span>
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">De "Escáner" a "Bóveda"</h2>
+                    <p class="text-gray-700 mb-6 leading-relaxed">
+                        El acceso no es solo login; es el contrato de seguridad. Se elimina el escaneo anónimo.
+                        El usuario debe percibir que entra en una "bóveda administrativa", no en una utilidad desechable.
+                    </p>
+                    <div class="bg-gray-50 border border-gray-200 rounded-xl p-4">
+                        <h4 class="font-bold text-sm text-gray-900 mb-2">Protocolo de Copy Seguro</h4>
+                        <div class="grid grid-cols-2 gap-4 text-sm">
+                            <div class="text-red-600 line-through">"Ahorra impuestos"</div>
+                            <div class="text-green-700 font-medium">"Prepara tus impuestos"</div>
+                            <div class="text-red-600 line-through">"Deducible"</div>
+                            <div class="text-green-700 font-medium">"Documento Completo"</div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 2. CAMERA -->
+                <section id="doc-camera" class="doc-section max-w-2xl">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">Captura Personalizada</h2>
+                    <p class="text-gray-700 mb-6">
+                        Interfaz especializada en documentos. No es la cámara estándar del sistema.
+                    </p>
+                    <ul class="space-y-3 text-sm text-gray-700 bg-gray-50 p-5 rounded-xl border border-gray-200">
+                        <li class="flex items-center gap-3"><i class="fa-solid fa-crop-simple text-gray-500"></i> <strong>Recorte Automático:</strong> Detección de bordes en tiempo real para eliminar fondos irrelevantes.</li>
+                        <li class="flex items-center gap-3"><i class="fa-solid fa-magic text-gray-500"></i> <strong>Auto-disparo:</strong> Detecta cuando el documento está quieto y enfocado.</li>
+                        <li class="flex items-center gap-3"><i class="fa-solid fa-layer-group text-gray-500"></i> <strong>Modo Multi:</strong> Escaneo continuo de varias páginas sin salir de la cámara.</li>
+                    </ul>
+                </section>
+
+                <!-- 3. CAPTURE MENU -->
+                <section id="doc-capture-menu" class="doc-section max-w-2xl">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">Menú Contextual (Overlay)</h2>
+                    <p class="text-gray-700 mb-4">
+                        Punto de entrada unificado accesible desde el Tab Bar. Permite elegir la fuente de la verdad antes de procesar.
+                    </p>
+                    <div class="bg-blue-50 border border-blue-200 p-4 rounded-xl text-sm text-blue-900">
+                        <strong>Accesibilidad:</strong> Este menú atrapa el foco del teclado y permite cerrar con Escape o clicando fuera (Backdrop).
+                    </div>
+                </section>
+
+                <!-- 4. PHOTO PICKER -->
+                <section id="doc-photo-picker" class="doc-section max-w-2xl">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">Selección de Lote</h2>
+                    <p class="text-gray-700 mb-6">
+                        Selector nativo tipo grid que permite escoger múltiples imágenes de la galería de una sola vez.
+                    </p>
+                    <ul class="list-disc list-inside text-gray-700 space-y-2">
+                        <li>Indicadores visuales de orden de selección (1, 2, 3...).</li>
+                        <li><strong>Interactividad:</strong> Prueba a hacer clic en los recuadros para seleccionarlos/deseleccionarlos.</li>
+                        <li>Confirmación explícita con botón "Añadir".</li>
+                    </ul>
+                </section>
+
+                <!-- 5. PDF OPTIONS -->
+                <section id="doc-pdf-options" class="doc-section max-w-2xl">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">Opciones de PDF</h2>
+                    <p class="text-gray-700 mb-6">
+                        Paso crítico de desambiguación para archivos importados.
+                    </p>
+                    <div class="grid grid-cols-2 gap-4 text-sm mb-6">
+                        <div class="p-4 border border-gray-300 rounded-lg bg-white">
+                            <strong class="block text-gray-900 mb-1">Un solo documento</strong>
+                            <p class="text-xs text-gray-600">Para facturas multipágina (ej. factura de teléfono de 3 págs).</p>
+                        </div>
+                        <div class="p-4 border border-gray-300 rounded-lg bg-white">
+                            <strong class="block text-gray-900 mb-1">Separar páginas</strong>
+                            <p class="text-xs text-gray-600">Para PDFs escaneados que contienen múltiples tickets distintos.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 6. PROCESSING -->
+                <section id="doc-processing" class="doc-section max-w-2xl">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">Procesamiento (Queue)</h2>
+                    <p class="text-gray-700 mb-6">
+                        Gestión asíncrona de subidas. Permite ocultar el proceso y recibir una notificación al completar.
+                    </p>
+                    <div class="bg-blue-50 border border-blue-200 p-5 rounded-xl text-sm text-blue-900">
+                        <strong class="block mb-2 text-blue-800">Lógica de Segundo Plano:</strong>
+                        <ul class="list-disc list-inside space-y-1">
+                            <li>Si el usuario pulsa "Ocultar", mostramos un <strong>Toast</strong> persistente.</li>
+                            <li>Si el usuario espera, la pantalla navega automáticamente al <strong>Resumen de Lote</strong>.</li>
+                        </ul>
+                    </div>
+                </section>
+
+                <!-- 7. BATCH SUMMARY -->
+                <section id="doc-batch-summary" class="doc-section max-w-2xl">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">Resumen de Lote</h2>
+                    <p class="text-gray-700 mb-6">
+                        Punto de control tras la ingesta masiva. El usuario decide qué hacer a continuación.
+                    </p>
+                    <ul class="space-y-2 text-sm text-gray-700 bg-gray-50 p-4 rounded-xl border border-gray-200">
+                        <li class="flex items-center justify-between">
+                            <span><strong>Completos:</strong></span>
+                            <span class="text-green-700 font-bold">Archivados automáticamente</span>
+                        </li>
+                        <li class="flex items-center justify-between">
+                            <span><strong>Incidencias:</strong></span>
+                            <span class="text-orange-700 font-bold">Requieren revisión manual</span>
+                        </li>
+                    </ul>
+                </section>
+
+                <!-- 8. REVIEW -->
+                <section id="doc-review" class="doc-section max-w-2xl">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">Auditoría Expandida (Review)</h2>
+                    <p class="text-gray-700 mb-6">
+                        Ya no es un simple resumen. Es una ficha completa de datos fiscales para cumplimiento normativo (ES-21).
+                    </p>
+                    <h3 class="font-bold text-gray-900 mb-2">Campos Críticos Añadidos:</h3>
+                    <ul class="list-disc list-inside text-sm text-gray-700 space-y-2 mb-6 ml-1">
+                        <li><strong>NIF Emisor:</strong> (B1234...) Identificación fiscal del proveedor.</li>
+                        <li><strong>NIF Receptor:</strong> (B9876...) Validación cruzada para deducibilidad.</li>
+                        <li><strong>Desglose:</strong> Base Imponible + Cuota IVA + Tipo (%).</li>
+                        <li><strong>Etiquetas:</strong> Clasificación analítica (Proyecto, Cliente).</li>
+                    </ul>
+                    <div class="p-3 bg-red-50 text-red-800 text-sm border border-red-200 rounded-lg">
+                        <strong>Compliance:</strong> Eliminada cualquier referencia a "Deducción". El lenguaje es estrictamente sobre "Integridad de Archivo".
+                    </div>
+                </section>
+
+                <!-- 9. DASHBOARD -->
+                <section id="doc-dashboard" class="doc-section max-w-2xl">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">Panel de Control (Dashboard)</h2>
+                    <p class="text-gray-700 mb-6">
+                        Diseñado para el control diario. Responde a la pregunta: "¿Están mis papeles en regla?".
+                    </p>
+                    <div class="space-y-4">
+                        <div class="flex gap-4 items-start p-3 border border-gray-200 rounded-lg">
+                            <div class="w-8 h-8 rounded bg-blue-100 text-ios-blue flex items-center justify-center font-bold text-xs shrink-0">1</div>
+                            <div>
+                                <h4 class="font-bold text-gray-900 text-sm">Integridad Documental</h4>
+                                <p class="text-sm text-gray-600">Nueva métrica clave. Porcentaje de documentos listos para archivo formal.</p>
+                            </div>
+                        </div>
+                        <div class="flex gap-4 items-start p-3 border border-gray-200 rounded-lg">
+                            <div class="w-8 h-8 rounded bg-blue-100 text-ios-blue flex items-center justify-center font-bold text-xs shrink-0">2</div>
+                            <div>
+                                <h4 class="font-bold text-gray-900 text-sm">Cola de Incidencias</h4>
+                                <p class="text-sm text-gray-600">Agrupación por causa raíz (ej. "Falta NIF") para resolución en bloque.</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 10. ARCHIVE -->
+                <section id="doc-archive" class="doc-section max-w-2xl">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">Archivo Fiscal</h2>
+                    <p class="text-gray-700 mb-6">
+                        Repositorio final organizado con estados explícitos.
+                    </p>
+                    <div class="space-y-2 text-sm">
+                        <div class="flex items-center justify-between p-3 bg-white rounded border border-gray-300">
+                            <span class="text-gray-900">Estado: <strong>Completo</strong></span>
+                            <span class="px-2 py-0.5 bg-green-100 text-green-800 text-xs rounded font-bold border border-green-200">Formalmente Válido</span>
+                        </div>
+                        <div class="flex items-center justify-between p-3 bg-white rounded border border-gray-300">
+                            <span class="text-gray-900">Estado: <strong>Incompleto</strong></span>
+                            <span class="px-2 py-0.5 bg-orange-100 text-orange-800 text-xs rounded font-bold border border-orange-200">Falta Dato</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 11. EXPORT -->
+                <section id="doc-export" class="doc-section max-w-2xl">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">Exportación Final</h2>
+                    <p class="text-gray-700 mb-6">
+                        Control granular de los formatos de salida para el contable.
+                    </p>
+                    <div class="flex flex-wrap gap-2">
+                        <span class="px-3 py-1 bg-green-100 rounded-full text-xs font-bold text-green-800 border border-green-200">Excel/CSV</span>
+                        <span class="px-3 py-1 bg-blue-100 rounded-full text-xs font-bold text-blue-800 border border-blue-200">Originales (ZIP)</span>
+                        <span class="px-3 py-1 bg-gray-100 rounded-full text-xs font-bold text-gray-800 border border-gray-300">Resumen PDF</span>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <!-- RIGHT PANEL: SIMULATOR -->
+    <div class="w-full md:w-1/2 lg:w-2/5 bg-gray-100 flex items-center justify-center p-6 relative">
+        <div id="sim-frame" class="mobile-frame w-[375px] h-[812px] bg-white dark:bg-black shadow-2xl relative z-10 transition-colors duration-300">
+            <!-- Hardware -->
+            <div class="dynamic-island flex items-center justify-center"><div class="w-1.5 h-1.5 rounded-full bg-green-500 opacity-0 transition-opacity" id="camera-dot"></div></div>
+            <div class="punch-hole"></div>
+            <!-- Ripple Container -->
+            <div id="ripple-container" class="ripple-container" aria-hidden="true"></div>
+            
+            <!-- A11y Wrapper (Fixed Height) -->
+            <div id="sim-a11y-root" class="w-full h-full relative">
+                <!-- Status Bar -->
+                <div class="status-bar absolute w-full h-12 flex justify-between items-end px-6 pb-2 z-50 text-black dark:text-white pointer-events-none">
+                    <span class="text-[15px] font-semibold tracking-wide" id="clock">--:--</span>
+                    <div class="flex gap-1.5 items-center text-xs"><i class="fa-solid fa-signal"></i><i class="fa-solid fa-wifi"></i><i class="fa-solid fa-battery-full text-lg"></i></div>
+                </div>
+
+                <!-- SCREENS -->
+                <div id="sim-container" class="w-full h-full relative overflow-hidden bg-white dark:bg-black text-black dark:text-white font-sans">
+                    <!-- 1. LANDING -->
+                    <div id="screen-landing" class="screen active p-8 flex flex-col items-center justify-center text-center">
+                        <div class="w-[88px] h-[88px] bg-black dark:bg-white rounded-[22px] flex items-center justify-center mb-8 shadow-2xl"><i class="fa-solid fa-file-shield text-white dark:text-black text-4xl"></i></div>
+                        <h2 class="text-[28px] font-bold tracking-tight mb-3 leading-tight">Integridad<br>Documental</h2>
+                        <div class="w-full space-y-3 mt-12">
+                            <button type="button" data-action="nav" data-target="dashboard" class="w-full h-[52px] bg-black dark:bg-white text-white dark:text-black rounded-full font-semibold text-[17px] flex items-center justify-center gap-2 active:scale-95 transition-transform tap-target"><i class="fa-brands fa-apple text-xl mb-0.5"></i> Continuar con Apple</button>
+                            <button type="button" data-action="nav" data-target="dashboard" class="w-full h-[52px] bg-white border border-gray-200 text-gray-700 rounded-full font-semibold text-[17px] flex items-center justify-center gap-2 active:scale-95 transition-transform tap-target shadow-sm"><i class="fa-brands fa-google text-xl mb-0.5"></i> Continuar con Google</button>
+                        </div>
+                    </div>
+                    <!-- 2. DASHBOARD -->
+                    <div id="screen-dashboard" class="screen bg-gray-50 dark:bg-black overflow-y-auto">
+                        <div class="pt-14 pb-4 px-5 bg-white dark:bg-black sticky top-0 z-20 border-b border-gray-100 dark:border-gray-900">
+                            <div class="flex justify-between items-center mb-1"><h2 class="text-[28px] font-bold tracking-tight">Control</h2><div class="w-9 h-9 bg-gray-200 rounded-full overflow-hidden border border-gray-300"><i class="fa-solid fa-user text-gray-400 mt-2 ml-2 text-xl"></i></div></div><button type="button" class="flex items-center gap-2 text-ios-blue font-semibold text-[17px] tap-target">Enero 2026 <i class="fa-solid fa-chevron-down text-xs mt-0.5"></i></button>
+                        </div>
+                        <div class="p-5 pb-24 space-y-5">
+                            <div class="bg-white dark:bg-gray-900 p-5 rounded-2xl shadow-ios border border-gray-100 dark:border-gray-800"><div class="flex justify-between items-start mb-4"><h3 class="font-semibold text-gray-900 dark:text-white">Integridad</h3><span class="bg-green-100 text-green-700 text-[11px] font-bold px-2 py-0.5 rounded">85% OK</span></div><div class="w-full h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden flex mb-2"><div class="w-[85%] bg-ios-green"></div><div class="w-[10%] bg-ios-orange"></div><div class="w-[5%] bg-ios-red"></div></div></div>
+                            <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-ios border border-gray-100 dark:border-gray-800 overflow-hidden"><div class="p-4 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-orange-50/50 dark:bg-orange-900/10"><h3 class="font-bold text-ios-orange flex items-center gap-2"><i class="fa-solid fa-scale-unbalanced"></i> Incidencias Formales</h3><span class="text-xs font-bold text-ios-orange">3 Docs</span></div><div><button type="button" data-action="nav" data-target="review" class="w-full p-4 flex justify-between items-center border-b border-gray-50 dark:border-gray-800 active:bg-gray-50 transition-colors tap-target"><span class="text-[15px] font-medium">Falta NIF Receptor</span><span class="bg-gray-100 dark:bg-gray-800 text-gray-500 text-xs px-2 py-1 rounded font-bold">2</span></button><button type="button" class="w-full p-4 flex justify-between items-center border-b border-gray-50 dark:border-gray-800 active:bg-gray-50 transition-colors tap-target"><span class="text-[15px] font-medium">NIF Emisor Ilegible</span><span class="bg-gray-100 dark:bg-gray-800 text-gray-500 text-xs px-2 py-1 rounded font-bold">1</span></button></div></div>
+                        </div>
+                        <div class="absolute bottom-0 w-full h-[83px] bg-white/90 dark:bg-black/90 backdrop-blur-xl border-t border-gray-200 dark:border-gray-800 flex justify-around items-start pt-2 z-10"><button type="button" data-action="nav" data-target="dashboard" aria-current="page" class="flex flex-col items-center w-16 text-ios-blue tap-target"><i class="fa-solid fa-table-columns text-xl mb-1"></i><span class="text-[10px] font-medium">Control</span></button><button type="button" data-action="overlay" data-target="capture" aria-label="Abrir menú de captura" class="relative -top-6 tap-target"><div class="w-14 h-14 bg-black dark:bg-white text-white dark:text-black rounded-full flex items-center justify-center text-2xl shadow-lg active:scale-95 transition-transform"><i class="fa-solid fa-plus"></i></div></button><button type="button" data-action="nav" data-target="archive" class="flex flex-col items-center w-16 text-gray-500 tap-target"><i class="fa-solid fa-box-archive text-xl mb-1"></i><span class="text-[10px] font-medium">Archivo</span></button></div>
+                    </div>
+                    <!-- 3. CAMERA -->
+                    <div id="screen-camera" class="screen bg-black flex flex-col">
+                        <div class="flex-1 relative overflow-hidden"><img src="https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&q=80&w=400" class="w-full h-full object-cover opacity-60"><div class="absolute inset-0 border-[40px] border-black/50"></div><div class="absolute inset-0 border-[40px] border-transparent border-t-black/50 border-b-black/50 flex items-center justify-center"><div class="w-[80%] h-[70%] border-2 border-ios-yellow rounded-lg relative"><div class="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-ios-yellow text-black text-[10px] font-bold px-2 py-0.5 rounded">Factura Detectada</div></div></div><button type="button" data-action="nav" data-target="dashboard" aria-label="Cerrar y volver a Control" class="absolute top-12 left-6 w-8 h-8 rounded-full bg-black/40 text-white flex items-center justify-center tap-target"><i class="fa-solid fa-xmark"></i></button></div>
+                        <div class="h-32 bg-black flex items-center justify-around px-8 pb-4"><div class="w-12 h-12 rounded-lg bg-gray-800"></div><button type="button" data-action="overlay" data-target="processing" class="w-16 h-16 rounded-full border-4 border-white flex items-center justify-center active:scale-95 transition-transform"><div class="w-14 h-14 bg-white rounded-full"></div></button><div class="w-12 flex flex-col items-center gap-1"><i class="fa-solid fa-layer-group text-white"></i><span class="text-[10px] text-white">Multi</span></div></div>
+                    </div>
+                    <!-- 4. PHOTO PICKER -->
+                    <div id="screen-photo-picker" class="screen bg-white dark:bg-black flex flex-col p-0 pt-12">
+                        <div class="px-4 pb-4 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center"><button type="button" data-action="nav" data-target="dashboard" class="text-[17px] text-gray-600 dark:text-gray-400 tap-target">Cancelar</button><div class="font-bold text-[17px]">Seleccionar (5)</div><button type="button" data-action="overlay" data-target="processing" class="text-[17px] font-bold text-ios-blue tap-target">Añadir</button></div>
+                        <div class="grid grid-cols-3 gap-1 p-1 overflow-y-auto"><button type="button" class="aspect-square bg-gray-200 dark:bg-gray-800 relative hover:opacity-80 transition-opacity" data-action="toggle-tile" aria-pressed="true" aria-label="Seleccionar imagen 1"><div class="absolute top-2 right-2 w-6 h-6 bg-ios-blue rounded-full flex items-center justify-center border-2 border-white text-white text-xs"><i class="fa-solid fa-check text-[10px]"></i></div></button><button type="button" class="aspect-square bg-gray-200 dark:bg-gray-800 relative hover:opacity-80 transition-opacity" data-action="toggle-tile" aria-pressed="true" aria-label="Seleccionar imagen 2"><div class="absolute top-2 right-2 w-6 h-6 bg-ios-blue rounded-full flex items-center justify-center border-2 border-white text-white text-xs"><i class="fa-solid fa-check text-[10px]"></i></div></button><button type="button" class="aspect-square bg-gray-200 dark:bg-gray-800 relative hover:opacity-80 transition-opacity" data-action="toggle-tile" aria-pressed="true" aria-label="Seleccionar imagen 3"><div class="absolute top-2 right-2 w-6 h-6 bg-ios-blue rounded-full flex items-center justify-center border-2 border-white text-white text-xs"><i class="fa-solid fa-check text-[10px]"></i></div></button><button type="button" class="aspect-square bg-gray-200 dark:bg-gray-800 relative hover:opacity-80 transition-opacity" data-action="toggle-tile" aria-pressed="false" aria-label="Seleccionar imagen 4"><div class="hidden absolute top-2 right-2 w-6 h-6 bg-ios-blue rounded-full flex items-center justify-center border-2 border-white text-white text-xs"><i class="fa-solid fa-check text-[10px]"></i></div></button><button type="button" class="aspect-square bg-gray-200 dark:bg-gray-800 relative hover:opacity-80 transition-opacity" data-action="toggle-tile" aria-pressed="false" aria-label="Seleccionar imagen 5"><div class="hidden absolute top-2 right-2 w-6 h-6 bg-ios-blue rounded-full flex items-center justify-center border-2 border-white text-white text-xs"><i class="fa-solid fa-check text-[10px]"></i></div></button></div>
+                    </div>
+                    <!-- 5. PDF OPTIONS -->
+                    <div id="screen-pdf-options" class="screen bg-white dark:bg-black flex flex-col p-6 pt-16">
+                        <div class="flex justify-center mb-6"><div class="w-20 h-24 bg-red-500 rounded-lg flex items-center justify-center shadow-lg"><i class="fa-regular fa-file-pdf text-white text-4xl"></i></div></div><h2 class="text-center text-xl font-bold mb-1">facturas_lote.pdf</h2><p class="text-center text-gray-500 text-sm mb-8">5 páginas detectadas</p>
+                        <div class="space-y-3"><button type="button" data-action="overlay" data-target="processing" class="w-full p-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl text-left flex justify-between items-center tap-target"><div><div class="font-bold text-[17px]">Separar páginas</div><div class="text-xs text-gray-500">Crear 5 documentos independientes</div></div><i class="fa-solid fa-check text-ios-blue"></i></button><button type="button" data-action="overlay" data-target="processing" class="w-full p-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl text-left flex justify-between items-center tap-target"><div><div class="font-bold text-[17px]">Un solo documento</div><div class="text-xs text-gray-500">Mantener agrupado</div></div></button></div>
+                    </div>
+                    <!-- 6. BATCH SUMMARY -->
+                    <div id="screen-batch-summary" class="screen bg-white dark:bg-black p-6 pt-16 flex flex-col">
+                        <div class="flex items-center gap-3 mb-6"><div class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center text-ios-green"><i class="fa-solid fa-check text-xl"></i></div><h2 class="text-2xl font-bold">Proceso Completado</h2></div>
+                        <div class="bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 overflow-hidden mb-6"><div class="p-4 border-b border-gray-100 dark:border-gray-800 flex justify-between"><span class="text-gray-500">Total</span><span class="font-bold">5</span></div><div class="p-4 border-b border-gray-100 dark:border-gray-800 flex justify-between"><span class="flex items-center gap-2"><i class="fa-solid fa-circle-check text-ios-green text-sm"></i> Completos</span><span class="font-bold">2</span></div><div class="p-4 flex justify-between bg-orange-50/50 dark:bg-orange-900/10"><span class="flex items-center gap-2 text-ios-orange"><i class="fa-solid fa-triangle-exclamation text-sm"></i> Incidencias</span><span class="font-bold text-ios-orange">3</span></div></div>
+                        <div class="space-y-3 mt-auto"><button type="button" data-action="nav" data-target="review" class="w-full h-14 bg-ios-blue text-white rounded-xl font-bold text-[17px] shadow-lg shadow-blue-500/20 tap-target">Resolver Incidencias (3)</button><button type="button" data-action="nav" data-target="archive" class="w-full h-14 bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white rounded-xl font-bold text-[17px] tap-target">Ir al Archivo</button></div>
+                    </div>
+                    <!-- 7. REVIEW -->
+                    <div id="screen-review" class="screen bg-black flex flex-col">
+                        <div class="flex-1 relative bg-gray-900 flex items-center justify-center"><div class="w-64 h-80 bg-white p-4 text-[8px] font-mono text-gray-300">[PDF RENDER]</div><button type="button" data-action="nav" data-target="dashboard" aria-label="Cerrar y volver a Control" class="absolute top-12 left-6 w-8 h-8 rounded-full bg-black/40 text-white backdrop-blur flex items-center justify-center tap-target"><i class="fa-solid fa-xmark"></i></button></div>
+                        <div class="bg-white dark:bg-gray-900 rounded-t-[32px] p-6 pb-10 shadow-2xl h-[65%] flex flex-col relative z-20"><div class="w-10 h-1 bg-gray-300 dark:bg-gray-700 rounded-full mx-auto mb-6"></div><div class="bg-orange-50 dark:bg-orange-900/20 border border-orange-100 dark:border-orange-900/50 rounded-xl p-4 mb-5"><div class="flex gap-2 mb-2"><i class="fa-solid fa-scale-unbalanced text-ios-orange mt-0.5"></i><h4 class="text-sm font-bold text-ios-orange">Incidencia Formal</h4></div><p class="text-xs text-gray-600 dark:text-gray-300 mb-3 pl-6">Falta NIF del receptor (Regla ES-21).</p><div class="flex gap-2 pl-6"><button type="button" class="px-3 py-2 bg-white dark:bg-gray-800 border border-orange-200 dark:border-orange-700 rounded-lg text-xs font-bold tap-target">Añadir NIF</button></div></div><div class="flex-1 space-y-4 pr-2 overflow-y-auto"><div class="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-800"><span class="text-sm text-gray-500">Proveedor</span><span class="text-[17px] font-medium">Restaurante El Lago</span></div><div class="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-800"><span class="text-sm text-gray-500">NIF Emisor</span><span class="text-[17px] font-medium">B12345678</span></div><div class="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-800"><span class="text-sm text-ios-orange font-bold">NIF Receptor</span><span class="text-[17px] font-medium text-gray-400 italic">-- Vacío --</span></div><div class="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-800"><span class="text-sm text-gray-500">Total</span><span class="text-[17px] font-bold">€ 45,00</span></div></div><div class="mt-6 flex gap-3"><button type="button" class="flex-1 h-12 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded-xl font-semibold text-sm tap-target">Pendiente</button><button type="button" data-action="nav" data-target="archive" class="flex-1 h-12 bg-ios-blue text-white rounded-xl font-semibold text-sm tap-target">Confirmar</button></div></div>
+                    </div>
+                    <!-- 8. ARCHIVE -->
+                    <div id="screen-archive" class="screen bg-white dark:bg-black flex flex-col">
+                        <div class="pt-14 pb-2 px-4 sticky top-0 bg-white/95 dark:bg-black/95 backdrop-blur-md z-20 border-b border-gray-100 dark:border-gray-800"><div class="flex justify-between items-end mb-4"><h2 class="text-[28px] font-bold">Archivo</h2><button type="button" data-action="nav" data-target="export" aria-label="Ir a exportación" class="w-9 h-9 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center text-ios-blue tap-target"><i class="fa-solid fa-share-nodes"></i></button></div><div class="h-10 bg-gray-100 dark:bg-gray-900 rounded-xl flex items-center px-3 gap-2 mb-3"><label for="archive-search" class="sr-only">Buscar en el archivo</label><i class="fa-solid fa-magnifying-glass text-gray-400"></i><input id="archive-search" type="text" placeholder="Buscar..." class="bg-transparent w-full outline-none text-[17px]"></div><div class="flex gap-2 overflow-x-auto no-scrollbar pb-2"><button type="button" class="px-4 py-1.5 rounded-full bg-black dark:bg-white text-white dark:text-black text-xs font-bold tap-target">Todo</button><button type="button" class="px-4 py-1.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-xs font-bold tap-target">Incidencias</button></div></div>
+                        <div class="flex-1 overflow-y-auto p-4"><div class="flex justify-between items-end mb-3 mt-2"><div><h3 class="font-bold text-lg">Enero 2026</h3><div class="text-xs text-gray-500">32 Documentos</div></div><div class="flex gap-3"><button type="button" data-action="nav" data-target="review" class="text-ios-orange text-sm font-semibold tap-target">Resolver (3)</button><button type="button" data-action="nav" data-target="export" class="text-ios-blue text-sm font-semibold tap-target">Exportar</button></div></div><div class="space-y-3"><div class="flex items-center justify-between p-3 bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl active:bg-gray-50 tap-target"><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-full bg-indigo-50 text-ios-indigo flex items-center justify-center"><i class="fa-solid fa-utensils"></i></div><div><div class="font-semibold text-[15px]">El Lago</div><div class="text-[11px] text-gray-500 mt-0.5">12 Ene</div></div></div><div class="text-right"><div class="font-bold text-[15px]">-45 €</div><span class="text-green-600 font-bold bg-green-50 px-1.5 py-0.5 rounded text-[10px]">Completo</span></div></div></div></div>
+                        <div class="absolute bottom-0 w-full h-[83px] bg-white/90 dark:bg-black/90 backdrop-blur-xl border-t border-gray-200 dark:border-gray-800 flex justify-around items-start pt-2 z-10"><button type="button" data-action="nav" data-target="dashboard" class="flex flex-col items-center w-16 text-gray-500 tap-target"><i class="fa-solid fa-table-columns text-xl mb-1"></i><span class="text-[10px] font-medium">Control</span></button><button type="button" data-action="overlay" data-target="capture" aria-label="Abrir menú de captura" class="relative -top-6 tap-target"><div class="w-14 h-14 bg-gray-400 rounded-full text-white flex items-center justify-center text-2xl shadow-lg"><i class="fa-solid fa-plus"></i></div></button><button type="button" data-action="nav" data-target="archive" class="flex flex-col items-center w-16 text-ios-blue tap-target"><i class="fa-solid fa-box-archive text-xl mb-1"></i><span class="text-[10px] font-medium">Archivo</span></button></div>
+                    </div>
+                    <!-- 9. EXPORT -->
+                    <div id="screen-export" class="screen bg-gray-50 dark:bg-black p-0 pt-10">
+                        <div class="px-6 py-4 flex items-center gap-4"><button type="button" data-action="nav" data-target="archive" class="text-ios-blue text-[17px] tap-target"><i class="fa-solid fa-chevron-left"></i> Atrás</button><h2 class="text-[20px] font-bold">Exportar Paquete</h2></div>
+                        <div class="px-5 space-y-6"><div><p class="text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-2 pl-2">Formatos</p><div class="bg-white dark:bg-gray-900 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-800 divide-y divide-gray-100 dark:divide-gray-800"><div class="p-4 flex items-center justify-between"><span>Excel / CSV</span><i class="fa-solid fa-toggle-on text-ios-green text-2xl"></i></div><div class="p-4 flex items-center justify-between"><span>Originales (ZIP)</span><i class="fa-solid fa-toggle-on text-ios-green text-2xl"></i></div><div class="p-4 flex items-center justify-between"><span>Resumen PDF</span><i class="fa-solid fa-toggle-off text-gray-300 text-2xl"></i></div></div></div></div>
+                        <div class="mt-auto p-6 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800"><button type="button" class="w-full h-14 bg-ios-blue text-white rounded-xl font-bold text-[17px] shadow-lg tap-target">Generar Paquete</button></div>
+                    </div>
+                </div>
+            </div>
+            <!-- TOAST -->
+            <button type="button" id="toast-processing" class="toast-notification" aria-live="polite" aria-label="Notificación. Pulsa para ver." data-action="toast-click">
+                <div id="toast-dot" class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                <span id="toast-text">Procesando...</span>
+            </button>
+
+            <!-- OVERLAYS -->
+            <div id="overlay-capture" class="global-overlay" data-action="backdrop-close" data-target="capture" role="dialog" aria-modal="true" aria-labelledby="capture-title" aria-describedby="capture-desc" tabindex="-1">
+                <p id="capture-desc" class="sr-only">Selecciona un método para añadir documentos. Pulsa Escape para cerrar.</p>
+                <div class="sheet-content w-full p-4 pb-8 space-y-2">
+                    <div class="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-xl overflow-hidden shadow-ios-lg">
+                        <div id="capture-title" class="px-4 py-3 text-center text-xs font-semibold text-gray-500 border-b border-gray-200 dark:border-gray-700">Añadir Documento</div>
+                        <button type="button" data-action="nav-overlay" data-target="camera" data-overlay="capture" class="w-full p-4 text-[17px] text-ios-blue flex items-center justify-center border-b border-gray-200 dark:border-gray-700 active:bg-gray-100 dark:active:bg-gray-700 tap-target font-normal"><i class="fa-solid fa-camera mr-3"></i> Escanear</button>
+                        <button type="button" data-action="nav-overlay" data-target="photo-picker" data-overlay="capture" class="w-full p-4 text-[17px] text-ios-blue flex items-center justify-center border-b border-gray-200 dark:border-gray-700 active:bg-gray-100 dark:active:bg-gray-700 tap-target font-normal"><i class="fa-regular fa-images mr-3"></i> Fototeca (Lote)</button>
+                        <button type="button" data-action="nav-overlay" data-target="pdf-options" data-overlay="capture" class="w-full p-4 text-[17px] text-ios-blue flex items-center justify-center active:bg-gray-100 dark:active:bg-gray-700 tap-target font-normal"><i class="fa-regular fa-folder mr-3"></i> Importar PDF</button>
+                    </div>
+                    <button type="button" data-action="close-overlay" data-target="capture" class="w-full p-4 bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-xl text-[17px] font-semibold text-ios-blue shadow-ios tap-target active:bg-gray-100">Cancelar</button>
+                </div>
+            </div>
+
+            <div id="overlay-processing" class="global-overlay items-center justify-center bg-white/90 dark:bg-black/90 backdrop-blur-md transition-opacity duration-500" data-action="backdrop-close" data-target="processing" role="dialog" aria-modal="true" aria-labelledby="processing-title" aria-describedby="processing-desc" tabindex="-1">
+                <div class="w-16 h-16 border-4 border-gray-200 dark:border-gray-800 border-t-ios-blue rounded-full animate-spin mb-6"></div>
+                <h2 id="processing-title" class="text-xl font-bold mb-2 text-gray-900 dark:text-white">Procesando Lote</h2>
+                <p id="processing-desc" class="text-gray-500 text-center mb-8 px-8">Analizando integridad y extrayendo datos de 5 documentos...</p>
+                <button type="button" data-action="hide-processing" class="mt-12 text-ios-blue font-semibold tap-target">Ocultar (Segundo plano)</button>
+            </div>
+
+            <div class="absolute bottom-2 left-1/2 transform -translate-x-1/2 w-32 h-1 bg-black/20 dark:bg-white/20 rounded-full z-50"></div>
+        </div>
+    </div>
+
+    <script>
+        // Core Logic
+        let clockTimer = null;
+        let processingRunId = 0;
+        let toastHideTimer = null;
+        let colorSchemeMQ = null;
+        let colorSchemeHandler = null;
+        let lastFocusedEl = null;
+
+        // Interaction Feedback Script
+        document.addEventListener('click', (e) => {
+            const sim = e.target.closest('#sim-frame');
+            if (!sim) return;
+            const container = document.getElementById('ripple-container');
+            if (!container) return; // Guard
+            if (e.target.closest('.global-overlay')) return;
+
+            const ripple = document.createElement('div');
+            ripple.className = 'ripple';
+            const rect = sim.getBoundingClientRect();
+            ripple.style.left = `${e.clientX - rect.left - 20}px`;
+            ripple.style.top = `${e.clientY - rect.top - 20}px`;
+            container.appendChild(ripple);
+            setTimeout(() => ripple.remove(), 600);
+        });
+
+        // Delegation
+        document.addEventListener('click', (e) => {
+            const trigger = e.target.closest('[data-action]');
+            if (!trigger) return;
+
+            const action = trigger.dataset.action;
+            const target = trigger.dataset.target;
+            const overlay = trigger.dataset.overlay;
+
+            switch (action) {
+                case 'nav': simulateFlow(target); break;
+                case 'overlay': toggleOverlay(target); break;
+                case 'backdrop-close': {
+                    // Only close if clicking backdrop itself
+                    if (e.target === trigger) closeOverlay(target);
+                    break;
+                }
+                case 'close-overlay': closeOverlay(target); break;
+                case 'nav-overlay': simulateFlow(target); if (overlay) closeOverlay(overlay); break;
+                case 'hide-processing': closeOverlay('processing'); simulateFlow('dashboard'); showToast('processing'); break;
+                case 'toast-click': simulateFlow('batch-summary'); hideToast(); break;
+                case 'toggle-theme': toggleDarkMode(); break;
+                case 'toggle-platform': togglePlatform(); break;
+                case 'toggle-tile': {
+                    const pressed = trigger.getAttribute('aria-pressed') === 'true';
+                    trigger.setAttribute('aria-pressed', String(!pressed));
+                    trigger.classList.toggle('opacity-50', !pressed);
+                    
+                    const checkmark = trigger.querySelector('div');
+                    if (checkmark) {
+                       if (!pressed) checkmark.classList.remove('hidden'); 
+                       else checkmark.classList.add('hidden');
+                    }
+                    break;
+                }
+            }
+        });
+
+        // Helpers
+        function closeOverlay(id) {
+            const el = document.getElementById('overlay-' + id);
+            if (!el || !el.classList.contains('active')) return;
+            closeDialog(el);
+            if (id === 'capture') setCaptureNav(false);
+            if (id === 'processing') processingRunId++;
+        }
+
+        function toggleOverlay(id) {
+            const el = document.getElementById('overlay-' + id);
+            if (!el) return;
+            if (el.classList.contains('active')) closeOverlay(id);
+            else {
+                openDialog(el);
+                if(id === 'capture') {
+                    setCaptureNav(true);
+                    setDocs('capture-menu'); // Sync docs
+                    document.querySelectorAll('.doc-section').forEach(el => el.classList.remove('active'));
+                    document.getElementById('doc-capture-menu')?.classList.add('active');
+                }
+                if(id === 'processing') {
+                    setDocs('processing'); // Sync docs
+                    document.querySelectorAll('.doc-section').forEach(el => el.classList.remove('active'));
+                    document.getElementById('doc-processing')?.classList.add('active');
+                    const currentRun = ++processingRunId;
+                    setTimeout(() => {
+                        if(currentRun !== processingRunId) return;
+                        if(el.classList.contains('active')) {
+                            closeOverlay('processing');
+                            simulateFlow('batch-summary');
+                        } else { showToast('done'); }
+                    }, 2500);
+                }
+            }
+        }
+
+        function simulateFlow(screenId) {
+            // normalizer
+            if (!document.getElementById('screen-' + screenId)) screenId = 'dashboard';
+
+            closeOverlay('capture');
+            closeOverlay('processing');
+            setCaptureNav(false);
+            hideToast();
+            setAriaCurrentForNav(screenId);
+            setAriaCurrentForBottomTabs(screenId);
+            syncLeftNavActive(screenId);
+            setDocs(screenId);
+
+            const current = document.querySelector('.screen.active');
+            const next = document.getElementById('screen-' + screenId);
+            if(current && next && current !== next) { current.classList.remove('active'); current.style.opacity = '0'; }
+            if(next) { next.classList.add('active'); next.style.opacity = '1'; next.style.transform = 'scale(1)'; }
+        }
+        
+        function setDocs(screenId) {
+            const map = {
+                'landing': 'doc-landing', 'dashboard': 'doc-dashboard', 'camera': 'doc-camera',
+                'photo-picker': 'doc-photo-picker', 'pdf-options': 'doc-pdf-options',
+                'processing': 'doc-processing', 'batch-summary': 'doc-batch-summary',
+                'review': 'doc-review', 'archive': 'doc-archive', 'export': 'doc-export'
+            };
+            const docId = map[screenId] || 'doc-dashboard';
+            document.querySelectorAll('.doc-section').forEach(el => el.classList.remove('active'));
+            document.getElementById(docId)?.classList.add('active');
+        }
+        
+        function syncLeftNavActive(screenId) {
+             const navRoot = document.querySelector('nav[aria-label]');
+            if (!navRoot) return;
+            
+            navRoot.querySelectorAll('.nav-item').forEach(el => {
+                if(el.id === 'nav-capture-menu') return;
+                el.classList.remove('active', 'text-white', 'bg-blue-50', 'text-ios-blue', 'border-blue-100');
+                el.classList.add('text-gray-600');
+                const icon = el.querySelector('i');
+                if(icon) icon.classList.add('text-gray-400');
+                if(icon) icon.style.color = '';
+            });
+
+            const activeBtn = navRoot.querySelector(`button[data-target="${screenId}"]`);
+            if (activeBtn && activeBtn.id !== 'nav-capture-menu') {
+                activeBtn.classList.add('active');
+                activeBtn.classList.remove('text-gray-600');
+                const icon = activeBtn.querySelector('i');
+                if(icon) icon.classList.remove('text-gray-400');
+            }
+        }
+
+        function setCaptureNav(active) {
+            const nav = document.getElementById('nav-capture-menu');
+            if(!nav) return;
+            nav.classList.remove('active', 'text-white', 'font-bold', 'bg-blue-50', 'text-ios-blue', 'border', 'border-blue-100');
+            if (active) nav.classList.add('active', 'text-white', 'font-bold');
+            else nav.classList.add('bg-blue-50', 'text-ios-blue', 'border', 'border-blue-100');
+        }
+
+        function showToast(state) {
+            const toast = document.getElementById('toast-processing');
+            const text = document.getElementById('toast-text');
+            const dot = document.getElementById('toast-dot');
+            if(!toast || !text || !dot) return;
+            if (toastHideTimer) { clearTimeout(toastHideTimer); toastHideTimer = null; }
+            if (state === 'done') {
+                text.textContent = 'Lote listo • Ver resumen';
+                dot.classList.remove('animate-pulse');
+                toast.setAttribute('aria-label', 'Lote listo. Pulsa para ver el resumen.');
+                toastHideTimer = setTimeout(hideToast, 4000);
+            } else {
+                text.textContent = 'Procesando 5 documentos...';
+                dot.classList.add('animate-pulse');
+                toast.setAttribute('aria-label', 'Procesando documentos en segundo plano.');
+            }
+            toast.classList.add('show');
+        }
+
+        function hideToast() {
+            const toast = document.getElementById('toast-processing');
+            toast?.classList.remove('show');
+            if (toastHideTimer) { clearTimeout(toastHideTimer); toastHideTimer = null; }
+        }
+
+        // A11y & Focus
+        function isFocusable(el) { if (!el) return false; return el.matches('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'); }
+        function getFocusableElements(container) { if (!container) return []; const els = Array.from(container.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')); return els.filter(el => { const style = window.getComputedStyle(el); return style.visibility !== 'hidden' && style.display !== 'none'; }); }
+        function setAriaCurrentForNav(screenId) { const navRoot = document.querySelector('nav[aria-label]'); if (!navRoot) return; navRoot.querySelectorAll('button[data-action="nav"][data-target]').forEach(btn => btn.removeAttribute('aria-current')); const btn = navRoot.querySelector(`button[data-action="nav"][data-target="${screenId}"]`); if (btn) btn.setAttribute('aria-current', 'page'); }
+        function setAriaCurrentForBottomTabs(screenId) { const tabbars = document.querySelectorAll('#screen-dashboard .absolute.bottom-0 button[data-action="nav"], #screen-archive .absolute.bottom-0 button[data-action="nav"]'); tabbars.forEach(b => b.removeAttribute('aria-current')); const tabTarget = (screenId === 'archive') ? 'archive' : 'dashboard'; const activeScreen = document.getElementById('screen-' + screenId); let tabbar = activeScreen?.querySelector('.absolute.bottom-0'); if (!tabbar) tabbar = document.querySelector('#screen-dashboard .absolute.bottom-0'); const btn = tabbar?.querySelector(`button[data-action="nav"][data-target="${tabTarget}"]`); if (btn) btn.setAttribute('aria-current', 'page'); }
+        function trapFocusInDialog(dialogEl) { if (!dialogEl) return; function onKeyDown(e) { if (!dialogEl.classList.contains('active')) return; if (e.key === 'Escape') { if (dialogEl.id === 'overlay-capture') closeOverlay('capture'); if (dialogEl.id === 'overlay-processing') closeOverlay('processing'); return; } if (e.key !== 'Tab') return; const focusables = getFocusableElements(dialogEl); if (focusables.length === 0) { e.preventDefault(); dialogEl.focus(); return; } const first = focusables[0]; const last = focusables[focusables.length - 1]; if (e.shiftKey) { if (document.activeElement === first || document.activeElement === dialogEl) { e.preventDefault(); last.focus(); } } else { if (document.activeElement === last) { e.preventDefault(); first.focus(); } } } dialogEl._a11yTrapHandler = onKeyDown; document.addEventListener('keydown', onKeyDown, true); }
+        function untrapFocus(dialogEl) { if (!dialogEl?._a11yTrapHandler) return; document.removeEventListener('keydown', dialogEl._a11yTrapHandler, true); dialogEl._a11yTrapHandler = null; }
+        function openDialog(dialogEl) { if (!dialogEl) return; lastFocusedEl = document.activeElement; const root = document.getElementById('sim-a11y-root'); if (root) { root.setAttribute('aria-hidden', 'true'); root.inert = true; } dialogEl.classList.add('active'); const focusables = getFocusableElements(dialogEl); (focusables[0] || dialogEl).focus(); trapFocusInDialog(dialogEl); document.body.style.overflow = 'hidden'; }
+        function closeDialog(dialogEl) { if (!dialogEl) return; dialogEl.classList.remove('active'); untrapFocus(dialogEl); document.body.style.overflow = ''; const root = document.getElementById('sim-a11y-root'); if (root) { root.removeAttribute('aria-hidden'); root.inert = false; } if (lastFocusedEl && typeof lastFocusedEl.focus === 'function') lastFocusedEl.focus(); lastFocusedEl = null; }
+        function enableToastKeyboard() { const toast = document.getElementById('toast-processing'); if (!toast) return; toast.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); simulateFlow('batch-summary'); hideToast(); } }); }
+        
+        // Init
+        function startClock() { const clockEl = document.getElementById('clock'); if (!clockEl) return; function updateClock() { const now = new Date(); clockEl.innerText = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`; } updateClock(); if (clockTimer) clearInterval(clockTimer); clockTimer = setInterval(updateClock, 1000); }
+        function setDarkMode(enabled) { document.documentElement.classList.toggle('dark', enabled); const icon = document.getElementById('theme-toggle')?.querySelector('i'); if (icon) icon.className = enabled ? 'fa-solid fa-sun' : 'fa-solid fa-moon'; }
+        function toggleDarkMode() { setDarkMode(!document.documentElement.classList.contains('dark')); }
+        function togglePlatform() { const frame = document.getElementById('sim-frame'); if (!frame) return; frame.classList.toggle('android-mode'); syncPlatformToggleLabel(); }
+        function syncPlatformToggleLabel() { const frame = document.getElementById('sim-frame'); const btn = document.getElementById('platform-toggle'); if (!frame || !btn) return; btn.textContent = frame.classList.contains('android-mode') ? 'iOS' : 'Android'; }
+        function attachColorSchemeListener() { const mq = window.matchMedia?.('(prefers-color-scheme: dark)'); if (!mq) return; const handler = (e) => setDarkMode(!!e.matches); setDarkMode(!!mq.matches); if (mq.addEventListener) mq.addEventListener('change', handler); else if (mq.addListener) mq.addListener(handler); }
+        
+        window.addEventListener('load', () => { startClock(); syncPlatformToggleLabel(); attachColorSchemeListener(); enableToastKeyboard(); simulateFlow('landing'); });
+        window.addEventListener('beforeunload', detachColorSchemeListener);
+        function detachColorSchemeListener() { if (!colorSchemeMQ || !colorSchemeHandler) return; if (colorSchemeMQ.removeEventListener) colorSchemeMQ.removeEventListener('change', colorSchemeHandler); else if (colorSchemeMQ.removeListener) colorSchemeMQ.removeListener(colorSchemeHandler); colorSchemeMQ = null; colorSchemeHandler = null; }
+    </script>
+</body>
+</html>

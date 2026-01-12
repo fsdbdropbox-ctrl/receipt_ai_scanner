@@ -8,7 +8,11 @@
     "description": "Turn paper receipts into structured data in seconds. Extract vendor, date, total, and tax automatically.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
-    "categories": ["productivity", "utilities", "business"],
+    "categories": [
+        "productivity",
+        "utilities",
+        "business"
+    ],
     "icons": [
         {
             "src": "icons/Icon-192.png",

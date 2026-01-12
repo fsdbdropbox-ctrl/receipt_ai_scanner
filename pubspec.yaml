@@ -40,7 +40,18 @@ dependencies:
   purchases_flutter: ^6.29.0
   
   # Monitoring
-  sentry_flutter: ^7.15.0
+  sentry_flutter: ^9.9.1
+  
+  # Authentication (OAuth)
+  google_sign_in: ^6.2.1
+  sign_in_with_apple: ^6.1.2
+  
+  # Database & Storage
+  sqflite: ^2.3.2
+  path_provider: ^2.1.2
+  
+  # Excel Export
+  excel: ^4.0.4
 
 dev_dependencies:
   flutter_test:

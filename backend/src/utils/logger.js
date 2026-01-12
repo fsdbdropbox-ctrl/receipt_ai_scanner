@@ -13,10 +13,19 @@ export function logRequest(req, res, responseTime) {
 }
 
 export function logError(error, context = {}) {
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  
+  // Only expose stack traces in development
+  // In production, log minimal information to prevent information leakage
   console.error({
     error: error.message,
-    stack: error.stack,
-    context,
+    stack: isDevelopment ? error.stack : undefined,
+    context: isDevelopment ? context : {
+      // Only include safe context in production
+      path: context.path,
+      method: context.method,
+      // Don't log sensitive data
+    },
     timestamp: new Date().toISOString(),
   });
 }

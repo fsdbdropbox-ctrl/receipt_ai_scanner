@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-enum AppTab { scan, history }
+enum AppTab { dashboard, scan, history }
 
 class AppBottomNavigation extends StatelessWidget {
   final AppTab currentTab;
@@ -41,6 +41,13 @@ class AppBottomNavigation extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
+              _buildNavItem(
+                context,
+                icon: Icons.dashboard_outlined,
+                activeIcon: Icons.dashboard,
+                label: isSpanish ? 'Dashboard' : 'Dashboard',
+                tab: AppTab.dashboard,
+              ),
               _buildNavItem(
                 context,
                 icon: Icons.document_scanner_outlined,

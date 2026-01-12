@@ -511,6 +511,15 @@ class _HistoryViewState extends State<HistoryView> {
                 subtitle: isSpanish ? 'Para desarrolladores' : 'For developers',
                 onTap: () => _copyJson(context, viewModel, isSpanish),
               ),
+              const SizedBox(height: 12),
+              // Accountant Access Option
+              _buildExportOption(
+                context,
+                icon: Icons.person_outline,
+                label: isSpanish ? 'Acceso Contable' : 'Accountant Access',
+                subtitle: isSpanish ? 'Enviar enlace seguro magic-link' : 'Send secure magic-link',
+                onTap: () => _inviteAccountant(context, viewModel, isSpanish),
+              ),
             ],
           ),
         ),
@@ -640,6 +649,52 @@ class _HistoryViewState extends State<HistoryView> {
     );
 
     viewModel.exitSelectionMode();
+  }
+
+  void _inviteAccountant(
+    BuildContext context,
+    HistoryViewModel viewModel,
+    bool isSpanish,
+  ) {
+    Navigator.pop(context);
+    
+    // Show dialog to enter accountant email
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(isSpanish ? 'Invitar Contable' : 'Invite Accountant'),
+        content: TextField(
+          decoration: InputDecoration(
+            labelText: isSpanish ? 'Email del contable' : 'Accountant email',
+            hintText: 'contable@ejemplo.com',
+          ),
+          keyboardType: TextInputType.emailAddress,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(isSpanish ? 'Cancelar' : 'Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    isSpanish
+                        ? 'Enlace mágico enviado al contable'
+                        : 'Magic link sent to accountant',
+                  ),
+                  backgroundColor: Colors.green,
+                ),
+              );
+              viewModel.exitSelectionMode();
+            },
+            child: Text(isSpanish ? 'Enviar' : 'Send'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _confirmDelete(

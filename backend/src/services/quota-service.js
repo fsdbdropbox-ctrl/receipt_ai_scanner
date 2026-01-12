@@ -1,9 +1,10 @@
 import redis from '../config/redis.js';
 
-const DAILY_FREE_LIMIT = parseInt(process.env.DAILY_FREE_LIMIT || '5', 10);
-const MONTHLY_PREMIUM_LIMIT = parseInt(process.env.MONTHLY_PREMIUM_LIMIT || '1000', 10);
+// Quota limits (hardcoded - no longer configurable via env vars)
+const DAILY_FREE_LIMIT = 5;
+const MONTHLY_PREMIUM_LIMIT = 1000;
 // IP-based limits to prevent incognito/private browsing abuse
-const DAILY_IP_FREE_LIMIT = parseInt(process.env.DAILY_IP_FREE_LIMIT || '15', 10);
+const DAILY_IP_FREE_LIMIT = 15;
 
 /**
  * Get today's key in YYYY-MM-DD format

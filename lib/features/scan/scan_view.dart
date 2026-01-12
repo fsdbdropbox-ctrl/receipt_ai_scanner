@@ -355,9 +355,12 @@ class ScanView extends StatelessWidget {
     BuildContext context,
     ScanViewModel viewModel,
   ) async {
+    // Capture locale before async operation
+    if (!context.mounted) return;
+    final locale = Localizations.localeOf(context).toString();
+    
     final bytes = await InvoiceImagePicker.pickFromCamera();
-    if (bytes != null) {
-      final locale = Localizations.localeOf(context).toString();
+    if (bytes != null && context.mounted) {
       await viewModel.scanImage(bytes, locale);
     }
   }
@@ -366,9 +369,12 @@ class ScanView extends StatelessWidget {
     BuildContext context,
     ScanViewModel viewModel,
   ) async {
+    // Capture locale before async operation
+    if (!context.mounted) return;
+    final locale = Localizations.localeOf(context).toString();
+    
     final bytes = await InvoiceImagePicker.pickFromGallery();
-    if (bytes != null) {
-      final locale = Localizations.localeOf(context).toString();
+    if (bytes != null && context.mounted) {
       await viewModel.scanImage(bytes, locale);
     }
   }
@@ -377,9 +383,12 @@ class ScanView extends StatelessWidget {
     BuildContext context,
     ScanViewModel viewModel,
   ) async {
+    // Capture locale before async operation
+    if (!context.mounted) return;
+    final locale = Localizations.localeOf(context).toString();
+    
     final bytes = await InvoiceImagePicker.pickFromFile();
-    if (bytes != null) {
-      final locale = Localizations.localeOf(context).toString();
+    if (bytes != null && context.mounted) {
       await viewModel.scanImage(bytes, locale);
     }
   }

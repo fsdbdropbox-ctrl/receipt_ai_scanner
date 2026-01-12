@@ -1,0 +1,16 @@
+# Example keystore properties file
+# Copy this file to key.properties and fill in your actual values
+# IMPORTANT: key.properties is in .gitignore - NEVER commit it!
+
+storePassword=your_keystore_password_here
+keyPassword=your_key_password_here
+keyAlias=upload
+storeFile=C:/Users/YourUsername/upload-keystore.jks
+
+# Instructions:
+# 1. Generate keystore:
+#    keytool -genkey -v -keystore ~/upload-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+#
+# 2. Copy this file to key.properties (without .example)
+# 3. Update the paths and passwords above
+# 4. Use absolute path for storeFile (Windows: C:/path/to/keystore.jks, Linux/Mac: /path/to/keystore.jks)
