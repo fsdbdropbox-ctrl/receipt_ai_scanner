@@ -56,12 +56,23 @@ async function handleOAuth(request, reply, fastify) {
       } catch (verificationError) {
         fastify.log.warn({ 
           provider, 
-          error: verificationError.message 
+          error: verificationError.message,
+          hasGoogleClientId: !!process.env.GOOGLE_CLIENT_ID,
         }, 'OAuth token verification failed');
+        
+        // Provide more helpful error message
+        const isDevelopment = process.env.NODE_ENV === 'development';
+        let errorMessage = 'Token verification failed. Please sign in again.';
+        
+        if (verificationError.message.includes('GOOGLE_CLIENT_ID')) {
+          errorMessage = 'Server configuration error: GOOGLE_CLIENT_ID not configured. Please contact support.';
+        } else if (isDevelopment) {
+          errorMessage = `Token verification failed: ${verificationError.message}`;
+        }
         
         return reply.code(401).send({
           error: 'Invalid OAuth token',
-          message: 'Token verification failed. Please sign in again.',
+          message: errorMessage,
         });
       }
       
