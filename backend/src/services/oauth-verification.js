@@ -60,9 +60,14 @@ function getAppleSigningKey(kid) {
 export async function verifyGoogleToken(token) {
   try {
     const client = getGoogleClient();
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    
+    // Debug: Log client ID being used (first 20 chars only for security)
+    console.log('Verifying Google token with Client ID:', clientId ? `${clientId.substring(0, 20)}...` : 'NOT SET');
+    
     const ticket = await client.verifyIdToken({
       idToken: token,
-      audience: process.env.GOOGLE_CLIENT_ID,
+      audience: clientId,
     });
     
     const payload = ticket.getPayload();

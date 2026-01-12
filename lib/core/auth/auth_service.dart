@@ -11,6 +11,8 @@ class AuthService {
   static const String _userKey = 'user_data';
 
   // Google Sign-In instance
+  // Note: If you need to specify a serverClientId explicitly, uncomment and add:
+  // serverClientId: '967736229136-6trttcp44a4vhkc9g8st2dpj8430vbcl.apps.googleusercontent.com',
   final GoogleSignIn _googleSignIn = GoogleSignIn(
     scopes: ['email', 'profile'],
   );

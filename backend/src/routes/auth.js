@@ -52,12 +52,22 @@ async function handleOAuth(request, reply, fastify) {
       // This ensures the token is valid and hasn't been tampered with
       let verifiedPayload;
       try {
+        // Debug: Log token info (first 20 chars only)
+        fastify.log.info({ 
+          provider,
+          tokenPrefix: token ? `${token.substring(0, 20)}...` : 'null',
+          hasGoogleClientId: !!process.env.GOOGLE_CLIENT_ID,
+          googleClientIdPrefix: process.env.GOOGLE_CLIENT_ID ? `${process.env.GOOGLE_CLIENT_ID.substring(0, 20)}...` : 'NOT SET',
+        }, 'Attempting OAuth token verification');
+        
         verifiedPayload = await verifyOAuthToken(provider, token, oauthId, email);
       } catch (verificationError) {
         fastify.log.warn({ 
           provider, 
           error: verificationError.message,
+          errorStack: verificationError.stack,
           hasGoogleClientId: !!process.env.GOOGLE_CLIENT_ID,
+          googleClientIdPrefix: process.env.GOOGLE_CLIENT_ID ? `${process.env.GOOGLE_CLIENT_ID.substring(0, 20)}...` : 'NOT SET',
         }, 'OAuth token verification failed');
         
         // Provide more helpful error message
@@ -66,6 +76,8 @@ async function handleOAuth(request, reply, fastify) {
         
         if (verificationError.message.includes('GOOGLE_CLIENT_ID')) {
           errorMessage = 'Server configuration error: GOOGLE_CLIENT_ID not configured. Please contact support.';
+        } else if (verificationError.message.includes('Invalid audience') || verificationError.message.includes('audience')) {
+          errorMessage = 'Client ID mismatch: The token was issued for a different Client ID. Please verify GOOGLE_CLIENT_ID in Railway matches the one used in the app.';
         } else if (isDevelopment) {
           errorMessage = `Token verification failed: ${verificationError.message}`;
         }
