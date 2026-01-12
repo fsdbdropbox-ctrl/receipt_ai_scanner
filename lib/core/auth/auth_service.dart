@@ -29,9 +29,16 @@ class AuthService {
       
       final GoogleSignInAuthentication auth = await account.authentication;
       final String? idToken = auth.idToken;
+      final String? accessToken = auth.accessToken;
+      
+      print('🔑 Google Sign-In Info:');
+      print('   Email: ${account.email}');
+      print('   OAuth ID: ${account.id}');
+      print('   ID Token: ${idToken != null ? "${idToken.substring(0, 30)}..." : "null"}');
+      print('   Access Token: ${accessToken != null ? "${accessToken.substring(0, 30)}..." : "null"}');
       
       if (idToken == null) {
-        throw Exception('Failed to get Google ID token');
+        throw Exception('Failed to get Google ID token. Access token available: ${accessToken != null}');
       }
       
       // Authenticate with backend using the ID token

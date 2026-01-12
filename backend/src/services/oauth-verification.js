@@ -64,6 +64,8 @@ export async function verifyGoogleToken(token) {
     
     // Debug: Log client ID being used (first 20 chars only for security)
     console.log('Verifying Google token with Client ID:', clientId ? `${clientId.substring(0, 20)}...` : 'NOT SET');
+    console.log('Token length:', token ? token.length : 0);
+    console.log('Token prefix:', token ? `${token.substring(0, 50)}...` : 'null');
     
     const ticket = await client.verifyIdToken({
       idToken: token,
@@ -85,6 +87,13 @@ export async function verifyGoogleToken(token) {
       throw new Error('Invalid Google token: missing email claim');
     }
     
+    // Debug: Log successful verification
+    console.log('Google token verified successfully:', {
+      email: payload.email,
+      sub: payload.sub,
+      audience: payload.aud,
+    });
+    
     return {
       oauthId: payload.sub,
       email: payload.email,
@@ -93,9 +102,28 @@ export async function verifyGoogleToken(token) {
       picture: payload.picture,
     };
   } catch (error) {
+    // Enhanced error logging
+    console.error('Google token verification error:', {
+      message: error.message,
+      code: error.code,
+      name: error.name,
+      clientIdSet: !!clientId,
+      clientIdPrefix: clientId ? `${clientId.substring(0, 20)}...` : 'NOT SET',
+    });
+    
     if (error.message.includes('GOOGLE_CLIENT_ID')) {
       throw error;
     }
+    
+    // Provide more specific error messages
+    if (error.message.includes('audience') || error.code === 'auth/id-token-aud-mismatch') {
+      throw new Error(`Invalid audience: Token was issued for a different Client ID. Expected: ${clientId ? clientId.substring(0, 20) + '...' : 'NOT SET'}`);
+    }
+    
+    if (error.message.includes('expired') || error.code === 'auth/id-token-expired') {
+      throw new Error('Token has expired. Please sign in again.');
+    }
+    
     throw new Error(`Google token verification failed: ${error.message}`);
   }
 }
