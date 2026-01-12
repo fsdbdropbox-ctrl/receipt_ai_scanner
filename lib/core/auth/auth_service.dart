@@ -92,8 +92,18 @@ class AuthService {
     required String oauthId,
   }) async {
     try {
+      // Ensure URL is properly formatted
+      final baseUrl = AppConstants.apiBaseUrl.trim();
+      final url = baseUrl.endsWith('/') 
+          ? '${baseUrl}api/auth/oauth'
+          : '$baseUrl/api/auth/oauth';
+      
+      // Debug: Log the URL being used (remove in production if needed)
+      print('🔐 Authenticating with URL: $url');
+      print('🔐 Base URL: $baseUrl');
+      
       final response = await http.post(
-        Uri.parse('${AppConstants.apiBaseUrl}/api/auth/oauth'),
+        Uri.parse(url),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'provider': provider,
@@ -104,9 +114,12 @@ class AuthService {
       ).timeout(
         const Duration(seconds: 10),
         onTimeout: () {
-          throw Exception('Request timeout');
+          throw Exception('Request timeout - El servidor no respondió a tiempo');
         },
       );
+
+      print('📡 Response status: ${response.statusCode}');
+      print('📡 Response body: ${response.body.substring(0, response.body.length > 200 ? 200 : response.body.length)}');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -123,14 +136,18 @@ class AuthService {
         final errorBody = response.body.isNotEmpty
             ? jsonDecode(response.body) as Map<String, dynamic>?
             : null;
-        throw Exception(
-          errorBody?['message'] as String? ??
-              'Authentication failed: ${response.statusCode}',
-        );
+        final errorMessage = errorBody?['message'] as String? ??
+            errorBody?['error'] as String? ??
+            'Authentication failed: ${response.statusCode}';
+        
+        print('❌ Auth error: $errorMessage');
+        throw Exception(errorMessage);
       }
-    } on FormatException {
+    } on FormatException catch (e) {
+      print('❌ JSON parse error: $e');
       throw Exception('Invalid response format from server');
     } catch (e) {
+      print('❌ Network error: $e');
       if (e is Exception) {
         rethrow;
       }

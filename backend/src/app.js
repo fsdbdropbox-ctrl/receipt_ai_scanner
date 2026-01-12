@@ -195,11 +195,26 @@ fastify.get('/', async (request, reply) => {
 
 // Health check (public)
 fastify.get('/health', async (request, reply) => {
-  return {
+  return { 
     status: 'ok',
     timestamp: new Date().toISOString(),
     version: process.env.npm_package_version || '1.0.0',
   };
+});
+
+// 404 handler - provide helpful error messages
+fastify.setNotFoundHandler(async (request, reply) => {
+  return reply.code(404).send({
+    error: 'Route not found',
+    message: `Route ${request.method}:${request.url} not found`,
+    availableRoutes: {
+      health: 'GET /health',
+      root: 'GET /',
+      oauth: 'POST /api/auth/oauth',
+      fiscalProfile: 'GET /api/fiscal-profile',
+      dashboard: 'GET /api/dashboard/metrics',
+    },
+  });
 });
 
 // Upload limits endpoint (public, for frontend reference)
