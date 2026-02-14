@@ -99,7 +99,9 @@ async function handleOAuth(request, reply, fastify) {
         });
       }
 
-    // Find or create user
+    // Find or create user.
+    // First try provider+oauth_id. If not found, try linking by email to avoid
+    // duplicate email conflicts when oauth_id source changes across web flows.
     let userResult = await query(
       `SELECT * FROM users WHERE oauth_provider = $1 AND oauth_id = $2`,
         [provider, verifiedOauthId]
@@ -107,14 +109,31 @@ async function handleOAuth(request, reply, fastify) {
 
     let user;
     if (userResult.rows.length === 0) {
-      // Create new user with verified email
-      const result = await query(
-        `INSERT INTO users (email, oauth_provider, oauth_id)
-           VALUES ($1, $2, $3)
-           RETURNING *`,
-          [verifiedEmail, provider, verifiedOauthId]
+      // Try to link by email first (email is UNIQUE in schema).
+      const byEmailResult = await query(
+        `SELECT * FROM users WHERE email = $1 LIMIT 1`,
+        [verifiedEmail]
       );
-      user = result.rows[0];
+
+      if (byEmailResult.rows.length > 0) {
+        const result = await query(
+          `UPDATE users
+           SET oauth_provider = $1, oauth_id = $2, updated_at = CURRENT_TIMESTAMP
+           WHERE email = $3
+           RETURNING *`,
+          [provider, verifiedOauthId, verifiedEmail]
+        );
+        user = result.rows[0];
+      } else {
+        // Create new user with verified email
+        const result = await query(
+          `INSERT INTO users (email, oauth_provider, oauth_id)
+             VALUES ($1, $2, $3)
+             RETURNING *`,
+            [verifiedEmail, provider, verifiedOauthId]
+        );
+        user = result.rows[0];
+      }
     } else {
       // Update existing user with verified email
       const result = await query(
@@ -124,6 +143,10 @@ async function handleOAuth(request, reply, fastify) {
           [verifiedEmail, provider, verifiedOauthId]
       );
       user = result.rows[0];
+    }
+
+    if (!user) {
+      throw new Error('Failed to resolve authenticated user record');
     }
 
     // Check if user has fiscal profile
