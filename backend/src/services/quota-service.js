@@ -6,6 +6,15 @@ const MONTHLY_PREMIUM_LIMIT = 1000;
 // IP-based limits to prevent incognito/private browsing abuse
 const DAILY_IP_FREE_LIMIT = 15;
 
+async function safeGetCount(key) {
+  try {
+    const count = await redis.get(key);
+    return parseInt(count || '0', 10);
+  } catch {
+    return 0;
+  }
+}
+
 /**
  * Get today's key in YYYY-MM-DD format
  */
@@ -36,8 +45,7 @@ function getDaysUntilReset() {
  */
 export async function checkDailyQuota(installId) {
   const key = `quota:daily:${installId}:${getTodayKey()}`;
-  const count = await redis.get(key);
-  return parseInt(count || '0', 10);
+  return safeGetCount(key);
 }
 
 /**
@@ -48,8 +56,7 @@ export async function checkDailyIpQuota(ip) {
   // Normalize IP (remove port if present, handle IPv6)
   const normalizedIp = ip.replace(/:\d+$/, '').replace(/^::ffff:/, '');
   const key = `quota:ip:daily:${normalizedIp}:${getTodayKey()}`;
-  const count = await redis.get(key);
-  return parseInt(count || '0', 10);
+  return safeGetCount(key);
 }
 
 /**
@@ -59,11 +66,15 @@ export async function consumeIpQuota(ip) {
   if (!ip) return 0;
   const normalizedIp = ip.replace(/:\d+$/, '').replace(/^::ffff:/, '');
   const key = `quota:ip:daily:${normalizedIp}:${getTodayKey()}`;
-  const multi = redis.multi();
-  multi.incr(key);
-  multi.expire(key, 86400); // 24 hours
-  const results = await multi.exec();
-  return parseInt(results[0][1], 10);
+  try {
+    const multi = redis.multi();
+    multi.incr(key);
+    multi.expire(key, 86400); // 24 hours
+    const results = await multi.exec();
+    return parseInt(results[0][1], 10);
+  } catch {
+    return 0;
+  }
 }
 
 /**
@@ -71,8 +82,7 @@ export async function consumeIpQuota(ip) {
  */
 export async function checkMonthlyQuota(installId) {
   const key = `quota:monthly:${installId}:${getMonthKey()}`;
-  const count = await redis.get(key);
-  return parseInt(count || '0', 10);
+  return safeGetCount(key);
 }
 
 /**
@@ -83,31 +93,35 @@ export async function checkMonthlyQuota(installId) {
  * @returns {Object} - Updated quota info
  */
 export async function consumeQuota(installId, isPremium = false, ip = null) {
-  const multi = redis.multi();
-  
-  if (isPremium) {
-    // Track monthly usage for premium
-    const monthKey = `quota:monthly:${installId}:${getMonthKey()}`;
-    multi.incr(monthKey);
-    // Expire at end of month + buffer (35 days)
-    multi.expire(monthKey, 35 * 24 * 3600);
-  } else {
-    // Track daily usage for free (by installId)
-    const dayKey = `quota:daily:${installId}:${getTodayKey()}`;
-    multi.incr(dayKey);
-    multi.expire(dayKey, 86400);
-    
-    // Also track by IP to prevent incognito abuse
-    if (ip) {
-      const normalizedIp = ip.replace(/:\d+$/, '').replace(/^::ffff:/, '');
-      const ipKey = `quota:ip:daily:${normalizedIp}:${getTodayKey()}`;
-      multi.incr(ipKey);
-      multi.expire(ipKey, 86400);
+  try {
+    const multi = redis.multi();
+
+    if (isPremium) {
+      // Track monthly usage for premium
+      const monthKey = `quota:monthly:${installId}:${getMonthKey()}`;
+      multi.incr(monthKey);
+      // Expire at end of month + buffer (35 days)
+      multi.expire(monthKey, 35 * 24 * 3600);
+    } else {
+      // Track daily usage for free (by installId)
+      const dayKey = `quota:daily:${installId}:${getTodayKey()}`;
+      multi.incr(dayKey);
+      multi.expire(dayKey, 86400);
+
+      // Also track by IP to prevent incognito abuse
+      if (ip) {
+        const normalizedIp = ip.replace(/:\d+$/, '').replace(/^::ffff:/, '');
+        const ipKey = `quota:ip:daily:${normalizedIp}:${getTodayKey()}`;
+        multi.incr(ipKey);
+        multi.expire(ipKey, 86400);
+      }
     }
+
+    const results = await multi.exec();
+    return parseInt(results[0][1], 10);
+  } catch {
+    return 0;
   }
-  
-  const results = await multi.exec();
-  return parseInt(results[0][1], 10);
 }
 
 /**

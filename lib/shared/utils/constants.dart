@@ -16,7 +16,7 @@ class AppConstants {
   // NOTE: If using api.receiptdata.app, ensure it's configured correctly in Railway
   static const String apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://api.receiptdata.app',
+    defaultValue: 'https://receiptaiscanner-production.up.railway.app',
   );
   
   // Monitoring

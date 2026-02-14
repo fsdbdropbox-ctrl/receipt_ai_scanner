@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show debugPrint, kDebugMode, kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -10,16 +11,58 @@ class AuthService {
   static const String _tokenKey = 'auth_token';
   static const String _userKey = 'user_data';
 
-  // Google Sign-In instance
-  // Note: If you need to specify a serverClientId explicitly, uncomment and add:
-  // serverClientId: '967736229136-6trttcp44a4vhkc9g8st2dpj8430vbcl.apps.googleusercontent.com',
-  final GoogleSignIn _googleSignIn = GoogleSignIn(
-    scopes: ['email', 'profile'],
-  );
+  // Web Client ID - same for both web and mobile
+  static const String _webClientId = '967736229136-jccfe2msg2trmhb65mmp3h156ofiqb8m.apps.googleusercontent.com';
+
+  // Google Sign-In instance (singleton, initialized once based on platform)
+  // IMPORTANT:
+  // - Web: use clientId
+  // - Mobile: use serverClientId
+  late final GoogleSignIn _googleSignIn = _createGoogleSignIn();
+
+  GoogleSignIn _createGoogleSignIn() {
+    if (kIsWeb) {
+      // WEB: serverClientId is not supported on web.
+      return GoogleSignIn(
+        scopes: ['email', 'profile'],
+        clientId: _webClientId,
+      );
+    } else {
+      // MOBILE: use serverClientId for backend-verified ID tokens.
+      return GoogleSignIn(
+        scopes: ['email', 'profile'],
+        serverClientId: _webClientId,
+      );
+    }
+  }
+
+  void _logDebug(String message) {
+    if (kDebugMode) {
+      debugPrint(message);
+    }
+  }
+
+  bool _isGoogleSignInCancelled(Object error) {
+    final msg = error.toString().toLowerCase();
+    return msg.contains('popup_closed') ||
+        msg.contains('sign_in_canceled') ||
+        msg.contains('cancelled') ||
+        msg.contains('canceled');
+  }
+
+  String _googleConfigHint() {
+    if (!kIsWeb) {
+      return 'Revisa el client ID de Google para Android y el SHA-1/SHA-256.';
+    }
+    return 'Revisa Google Cloud OAuth Web Client: Orígenes JS autorizados y URIs de redireccionamiento para ${Uri.base.origin}.';
+  }
 
   /// Sign in with Google OAuth
   Future<User?> signInWithGoogle() async {
     try {
+      // Ensure a clean session before starting a new OAuth popup.
+      await _googleSignIn.signOut();
+
       final GoogleSignInAccount? account = await _googleSignIn.signIn();
       
       if (account == null) {
@@ -30,26 +73,41 @@ class AuthService {
       final GoogleSignInAuthentication auth = await account.authentication;
       final String? idToken = auth.idToken;
       final String? accessToken = auth.accessToken;
-      
-      print('🔑 Google Sign-In Info:');
-      print('   Email: ${account.email}');
-      print('   OAuth ID: ${account.id}');
-      print('   ID Token: ${idToken != null ? "${idToken.substring(0, 30)}..." : "null"}');
-      print('   Access Token: ${accessToken != null ? "${accessToken.substring(0, 30)}..." : "null"}');
-      
-      if (idToken == null) {
-        throw Exception('Failed to get Google ID token. Access token available: ${accessToken != null}');
+
+      _logDebug('Google sign-in email: ${account.email}');
+      _logDebug('ID token length: ${idToken?.length ?? 0}');
+      _logDebug('Access token length: ${accessToken?.length ?? 0}');
+
+      // Web fallback: idToken may be null, use accessToken.
+      final String? oauthToken = (idToken != null && idToken.isNotEmpty) ? idToken : accessToken;
+      if (oauthToken == null || oauthToken.isEmpty) {
+        throw Exception('No se pudo obtener token de Google. ${_googleConfigHint()}');
+      }
+
+      if (oauthToken == 'mock-token') {
+        throw Exception('Invalid Google token received. Please check OAuth configuration.');
       }
       
-      // Authenticate with backend using the ID token
+      // Authenticate with backend using ID token (mobile) or access token (web).
       return await authenticateWithOAuth(
         provider: 'google',
-        token: idToken,
+        token: oauthToken,
         email: account.email,
         oauthId: account.id,
       );
     } catch (e) {
-      throw Exception('Google Sign-In failed: $e');
+      if (_isGoogleSignInCancelled(e)) {
+        return null;
+      }
+
+      final msg = e.toString();
+      if (msg.contains('redirect_uri_mismatch') ||
+          msg.contains('unauthorized') ||
+          msg.contains('invalid_request')) {
+        throw Exception('Google OAuth no autorizado. ${_googleConfigHint()}');
+      }
+
+      throw Exception('Google Sign-In failed: $msg');
     }
   }
 
@@ -107,9 +165,7 @@ class AuthService {
           ? '${baseUrl}api/auth/oauth'
           : '$baseUrl/api/auth/oauth';
       
-      // Debug: Log the URL being used (remove in production if needed)
-      print('🔐 Authenticating with URL: $url');
-      print('🔐 Base URL: $baseUrl');
+      _logDebug('Authenticating with URL: $url');
       
       final response = await http.post(
         Uri.parse(url),
@@ -127,8 +183,7 @@ class AuthService {
         },
       );
 
-      print('📡 Response status: ${response.statusCode}');
-      print('📡 Response body: ${response.body.substring(0, response.body.length > 200 ? 200 : response.body.length)}');
+      _logDebug('OAuth response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -149,14 +204,13 @@ class AuthService {
             errorBody?['error'] as String? ??
             'Authentication failed: ${response.statusCode}';
         
-        print('❌ Auth error: $errorMessage');
         throw Exception(errorMessage);
       }
     } on FormatException catch (e) {
-      print('❌ JSON parse error: $e');
+      _logDebug('JSON parse error: $e');
       throw Exception('Invalid response format from server');
     } catch (e) {
-      print('❌ Network error: $e');
+      _logDebug('Network error: $e');
       if (e is Exception) {
         rethrow;
       }

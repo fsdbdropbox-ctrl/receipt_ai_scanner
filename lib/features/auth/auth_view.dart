@@ -38,9 +38,10 @@ class _AuthViewState extends State<AuthView> {
       }
     } catch (e) {
       if (mounted) {
+        final message = e.toString().replaceFirst('Exception: ', '');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error al iniciar sesión: ${e.toString()}'),
+            content: Text('Error al iniciar sesión: $message'),
             backgroundColor: Colors.red,
           ),
         );
@@ -76,9 +77,10 @@ class _AuthViewState extends State<AuthView> {
       }
     } catch (e) {
       if (mounted) {
+        final message = e.toString().replaceFirst('Exception: ', '');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error al iniciar sesión: ${e.toString()}'),
+            content: Text('Error al iniciar sesión: $message'),
             backgroundColor: Colors.red,
           ),
         );

@@ -14,8 +14,12 @@ const PROCESSED_EVENT_TTL = 7 * 24 * 3600; // 7 days
  */
 export async function isEventProcessed(eventId) {
   const key = `webhook:processed:${eventId}`;
-  const exists = await redis.exists(key);
-  return exists === 1;
+  try {
+    const exists = await redis.exists(key);
+    return exists === 1;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -29,7 +33,11 @@ export async function markEventProcessed(eventId, metadata = {}) {
     processedAt: new Date().toISOString(),
     ...metadata,
   });
-  await redis.setex(key, PROCESSED_EVENT_TTL, value);
+  try {
+    await redis.setex(key, PROCESSED_EVENT_TTL, value);
+  } catch {
+    // Non-critical; idempotency cache can be skipped when Redis is down.
+  }
 }
 
 /**
@@ -39,7 +47,12 @@ export async function markEventProcessed(eventId, metadata = {}) {
  */
 export async function getProcessedEventInfo(eventId) {
   const key = `webhook:processed:${eventId}`;
-  const value = await redis.get(key);
+  let value = null;
+  try {
+    value = await redis.get(key);
+  } catch {
+    return null;
+  }
   if (value) {
     try {
       return JSON.parse(value);

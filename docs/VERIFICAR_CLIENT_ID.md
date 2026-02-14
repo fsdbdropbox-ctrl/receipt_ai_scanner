@@ -1,9 +1,15 @@
 # 🔍 Verificar Google Client ID
 
-## Client ID que tienes configurado
+## Client IDs configurados
 
+**Android Client ID** (para autenticación nativa):
 ```
 967736229136-6trttcp44a4vhkc9g8st2dpj8430vbcl.apps.googleusercontent.com
+```
+
+**Web Client ID** (para serverClientId y backend):
+```
+967736229136-jccfe2msg2trmhb65mmp3h156ofiqb8m.apps.googleusercontent.com
 ```
 
 ## Verificación en Google Cloud Console
@@ -19,11 +25,14 @@
 ## Verificación en Railway
 
 1. Ve a Railway → Tu servicio → **Variables**
-2. Verifica que `GOOGLE_CLIENT_ID` sea exactamente:
+2. Verifica que `GOOGLE_CLIENT_ID` sea exactamente el **Web Client ID**:
    ```
-   967736229136-6trttcp44a4vhkc9g8st2dpj8430vbcl.apps.googleusercontent.com
+   967736229136-jccfe2msg2trmhb65mmp3h156ofiqb8m.apps.googleusercontent.com
    ```
-3. **IMPORTANTE**: Sin espacios, sin comillas, exactamente como está arriba
+3. **IMPORTANTE**: 
+   - Debe ser el **Web Client ID**, no el Android Client ID
+   - Sin espacios, sin comillas, exactamente como está arriba
+   - Debe coincidir con el `serverClientId` en `lib/core/auth/auth_service.dart`
 
 ## Problema Común: Tipo de Client ID Incorrecto
 
