@@ -126,13 +126,29 @@ async function handleOAuth(request, reply, fastify) {
         user = result.rows[0];
       } else {
         // Create new user with verified email
-        const result = await query(
-          `INSERT INTO users (email, oauth_provider, oauth_id)
-             VALUES ($1, $2, $3)
-             RETURNING *`,
-            [verifiedEmail, provider, verifiedOauthId]
-        );
-        user = result.rows[0];
+        try {
+          const result = await query(
+            `INSERT INTO users (email, oauth_provider, oauth_id)
+               VALUES ($1, $2, $3)
+               RETURNING *`,
+              [verifiedEmail, provider, verifiedOauthId]
+          );
+          user = result.rows[0];
+        } catch (insertError) {
+          // Handle race-condition unique collisions by linking existing email.
+          if (insertError?.code === '23505') {
+            const recovery = await query(
+              `UPDATE users
+               SET oauth_provider = $1, oauth_id = $2, updated_at = CURRENT_TIMESTAMP
+               WHERE email = $3
+               RETURNING *`,
+              [provider, verifiedOauthId, verifiedEmail]
+            );
+            user = recovery.rows[0];
+          } else {
+            throw insertError;
+          }
+        }
       }
     } else {
       // Update existing user with verified email
@@ -150,12 +166,22 @@ async function handleOAuth(request, reply, fastify) {
     }
 
     // Check if user has fiscal profile
-    const profileResult = await query(
-      `SELECT * FROM fiscal_profiles WHERE user_id = $1`,
-      [user.id]
-    );
-
-    const hasProfile = profileResult.rows.length > 0;
+    let hasProfile = false;
+    try {
+      const profileResult = await query(
+        `SELECT * FROM fiscal_profiles WHERE user_id = $1`,
+        [user.id]
+      );
+      hasProfile = profileResult.rows.length > 0;
+    } catch (profileError) {
+      // If fiscal_profiles table is missing, allow login and treat as no profile.
+      if (profileError?.code === '42P01') {
+        fastify.log.warn({ code: profileError.code }, 'fiscal_profiles table not found');
+        hasProfile = false;
+      } else {
+        throw profileError;
+      }
+    }
 
     // Generate JWT token
     const jwtToken = fastify.jwt.sign({
